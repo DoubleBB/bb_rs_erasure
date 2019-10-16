@@ -7,7 +7,7 @@ Reed-Solomon code implementation for erasure coding
   and function descriptions. Because there is a finite chance that I use
   different words for that you are familiar with.  
    
-  A Reed-Solomon code word over GF(2***8) consists of n bytes,
+  A Reed-Solomon code word over GF(2^8) consists of n bytes,
   and the original message consist of k bytes. Encoding means,
   you create the output n bytes based on the input k bytes.
   This implementation use systematic generator matrices, so the first k bytes
@@ -43,8 +43,8 @@ Reed-Solomon code implementation for erasure coding
   generator matrix, so in each codeword on positions 0...11  
   the original message bytes will be, and index positions 12..14 hold fec values.  
    
-  uint8_t rs_n=15, rs_k=12;  
-  rs_ctx rs = rs_init(rs_n, rs_k);  
+  <code>uint8_t rs_n=15, rs_k=12;  <br>
+  rs_ctx rs = rs_init(rs_n, rs_k);</code>  
    
   To calculate a R-S code word vector last forward error corrector part:
   (code word bytes on the first k position are the same as input message bytes,
