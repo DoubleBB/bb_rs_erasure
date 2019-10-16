@@ -79,8 +79,11 @@ static void free_gf_tables(rs_ctx * rs) {
 static uint8_t init_gf_tables(rs_ctx * rs) {
 
   // allocate and zero memory for tables
-  rs->exp_table = (uint8_t *) calloc(2 * GF_ORDER, sizeof(uint8_t)); // max power value of adding two alphas as primitive element is GF_MUL_ORDER + GF_MUL_ORDER
-  rs->log_table = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t)); // exp values range between 0 and GF_MUL_ORDER-1  alpha**GF_MUL_ORDER = 1
+
+  // max power value of adding two alphas as primitive element is GF_MUL_ORDER + GF_MUL_ORDER
+  rs->exp_table = (uint8_t *) calloc(2 * GF_ORDER, sizeof(uint8_t));
+  // exp values range between 0 and GF_MUL_ORDER-1  alpha**GF_MUL_ORDER = 1
+  rs->log_table = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t));
   rs->div_table = (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
   rs->mul_table = (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
 
@@ -92,22 +95,31 @@ static uint8_t init_gf_tables(rs_ctx * rs) {
   uint16_t i,j;
   uint16_t x,t;
 
-  // exp_table[0] = 1 because it is alpha**0 (b1), exp_table[1] = b10 because it is alpha**1, exp_table[2] = b100 because it is alpha**2 etc,
+  // exp_table[0] = 1 because it is alpha**0 (b1), exp_table[1] = b10 because it is alpha**1,
+  // exp_table[2] = b100 because it is alpha**2 etc,
   // but exp_table[8] == lower bits of primitive polinomial coeffs because using the substitution that prim.poly(alpha) == 0,
   // so alpha**8 == prim.poly(alpha) - alpha**8 (in binary -b == +b)
   x = 1; // we use the alpha == 2 as primitive multiplicative generator element  (in GF(2**F_POWER) alpha**GF_MUL_ORDER == 1)
          // so multiplying by alpha is the same as multiplying by 2 and then modulo by PRIMITIVE_POLYNOMIAL
          // multiplying by 2 is very easy/efficient (left shift by 1 position)
   for(i=0; i<GF_ORDER; i++) {
-    rs->exp_table[i] = x;  // to easily get the answer for question:  "what is the number equals with the i-th power of alpha in GF(2**8)?"
-    rs->log_table[x] = i;  // to easily get the answer for question:  "which power of alpha is x  in GF(2**8)?"
-    // pre-calculating for next item
+
+    // to easily get the answer for question:  "what is the number equals with the i-th power of alpha in GF(2**8)?"
+    rs->exp_table[i] = x;
+
+    // to easily get the answer for question:  "which power of alpha is x  in GF(2**8)?"
+    rs->log_table[x] = i;
+
+    // pre-calculating x for next table item
     x <<= 1; // multiplyig by 2 == shift 1 bit to left
     if (x & GF_ORDER)
-      x ^= GF_PRIMITIVE_POLYNOMIAL; // substituting the highest element with primitive polynom lower elements. it also clears the highest bit
-                                    // this substitution comes from the fact that alpha is root of primitive polynomial by definition
+      x ^= GF_PRIMITIVE_POLYNOMIAL; // substituting the highest element with primitive polynom lower elements.
+                                    // it also clears the highest bit
+                                    // this substitution comes from the fact that
+                                    // alpha is root of primitive polynomial by definition
   } // for
-  rs->log_table[0] = GF_MUL_ORDER; // this remains uninitialized because log(0) does not exist (setting it to a special value)
+  rs->log_table[0] = GF_MUL_ORDER; // this remains uninitialized because log(0) does not exist
+                                   // (we may setting it to any value)
 
 
   // to easily calculate multiplication of two numbers of GF(2**8) we oversize exp table by 2
@@ -126,7 +138,8 @@ static uint8_t init_gf_tables(rs_ctx * rs) {
   for(i=0; i<=GF_MUL_ORDER; i++)
     for(j=0; j<=GF_MUL_ORDER; j++)
       if (i != 0 && j != 0)
-        // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha, by definition because th eorder of alpha is GF_MUL_ORER
+        // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha,
+        // by definition because th eorder of alpha is GF_MUL_ORER
         // a - b == GF_MUL_ORDER - b + a
         rs->div_table[i * GF_ORDER + j] = rs->exp_table[ (int16_t)GF_MUL_ORDER - rs->log_table[j] + rs->log_table[i] ];
 
@@ -385,12 +398,12 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
       // if pivot_row != current_row then swap rows item by item: current_row <=> idx_pivot_row) in both matrix
       if (current_row!=pivot_row) {
         memcpy(tmp_swap_row, &source_matrix[current_row*nb_columns], nb_columns*sizeof(uint8_t));
-        memcpy(&source_matrix[current_row*nb_columns],&source_matrix[pivot_row*nb_columns],nb_columns*sizeof(uint8_t));
-        memcpy(&source_matrix[pivot_row*nb_columns],tmp_swap_row,nb_columns*sizeof(uint8_t));
+        memcpy(&source_matrix[current_row*nb_columns], &source_matrix[pivot_row*nb_columns], nb_columns*sizeof(uint8_t));
+        memcpy(&source_matrix[pivot_row*nb_columns], tmp_swap_row, nb_columns*sizeof(uint8_t));
 
         memcpy(tmp_swap_row, &result_matrix[current_row*nb_columns], nb_columns*sizeof(uint8_t));
-        memcpy(&result_matrix[current_row*nb_columns],&result_matrix[pivot_row*nb_columns],nb_columns*sizeof(uint8_t));
-        memcpy(&result_matrix[pivot_row*nb_columns],tmp_swap_row,nb_columns*sizeof(uint8_t));
+        memcpy(&result_matrix[current_row*nb_columns], &result_matrix[pivot_row*nb_columns], nb_columns*sizeof(uint8_t));
+        memcpy(&result_matrix[pivot_row*nb_columns], tmp_swap_row, nb_columns*sizeof(uint8_t));
       } // if
 
       // a slower version for row swap
