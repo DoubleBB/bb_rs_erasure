@@ -12,7 +12,7 @@
   This implementation use systematic generator matrices, so the first k bytes
   of the output n bytes are always the same as the input k bytes.
   So encoding practically means to produce n-k bytes to the input message.
-  somethins these n-k bytes are called forward error correction info.  
+  Sometimes these n-k bytes are called forward error correction (FEC) info.  
    
   Due to properties of Reed-Solomon code, any k bytes of the codeword
   may be used to re-create all the n bytes of the whole codeword,
@@ -36,7 +36,7 @@
    
   Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.  
   Let n=15 and k=12.  
-  This means that fec values are 3 bytes appended to the 12 bytes long input messages.
+  This means that FEC values are 3 bytes appended to the 12 bytes long input messages.
   A full codeword length will be 15 bytes long. This implentation use systematic
   generator matrix, so in each codeword on positions 0 .. 11  
   the original message bytes will be, and index positions 12 .. 14 hold fec values.  
