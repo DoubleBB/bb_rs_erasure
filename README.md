@@ -1,5 +1,4 @@
-# bb_rs_erasure
-Reed-Solomon code implementation for erasure coding  
+# Reed-Solomon code implementation for erasure coding  
   
   
   I know you know more about Reed-Solomon codes than these short introduction,
@@ -34,7 +33,7 @@ Reed-Solomon code implementation for erasure coding
   You will have more error correction info appended to the original data.  
    
    
- Typical usage steps  
+ <h>Typical usage steps</h>  
    
   Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.  
   Let n=15 and k=12.  
