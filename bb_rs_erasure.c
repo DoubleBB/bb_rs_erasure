@@ -282,7 +282,7 @@ uint8_t check_parity_and_generator_matrix(rs_ctx * rs) {
 //  Basic idea: if Gt is the transponse of G generator matrix, then H x Gt == 0 by definition for any linear code
 //  So if G is systematic G == (I(k),B(k,n-k) and thus H == (A(n-k,k),I(n-k))
 //  From this quaity comes that A == - Bt   where Bt is the transponse of B matrix and I is an identity matrix
-uint8_t * create_rs_parity_matrix(rs_ctx * rs) {
+static uint8_t * create_rs_parity_matrix(rs_ctx * rs) {
 
   uint16_t i,j;
 
