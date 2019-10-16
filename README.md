@@ -24,7 +24,8 @@
   no problem, using the forward error correction part, it is always possible
   to recover the original code word data.
   Reed-Solomon code is even capable to correct if some bytes in your codeword altered,
-  but this implementation only able to signal the altering, not correc them.
+  but this implementation only able to signal the altering, not correc them.  
+  
   This implementation use GF(2^8) for Reed-Solomon code aritmetic.
   So the code word items are bytes and you may choose value of n between 1 and 255 freely.
   Value of k may be betwwen 1 and n-1. How to choose values for n and k?
