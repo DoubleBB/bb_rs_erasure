@@ -184,9 +184,12 @@ typedef struct rs_ctx_struct {
   uint8_t n;
   uint8_t k;
   uint8_t * g; // coefficients of R-S generator polinom x**0 ... x**(n-k)
-  uint8_t * generator_matrix; // k x n systematic generator matrix for Reed-Solomon code with parameters (n,k) over GF(2^8)
-  uint8_t * generator_matrix_t; // transponse of generator matrix (to save some index calculation during column operations on generator matrix)
-  uint8_t * parity_matrix; // n x k systematic "parity check" matrix for Reed-Solomon code with parameters (n,k) over GF(2^8)
+  uint8_t * generator_matrix; // will hold k x n systematic generator matrix for Reed-Solomon code
+                              // with parameters (n,k) over GF(2^8)
+  uint8_t * generator_matrix_t; // transponse of generator matrix
+                                // (working on rows is more optimized than column operations on generator matrix)
+  uint8_t * parity_matrix; // n x k systematic "parity check" matrix for Reed-Solomon code
+                           // with parameters (n,k) over GF(2^8)
 
 
   // to speed up GF calculations we use table lookups
@@ -221,12 +224,15 @@ rs_ctx * rs_init(uint8_t n, uint8_t k);
 
 
 
-// calculate original data words at specified erasure req_index position (i.e. original code block position) based on k different code words into v
+// calculate original data words at specified erasure req_index position
+// (i.e. original code block position) based on k different code words into v
 // require the decode matrix (transponse of the inverted reduced generator matrix) created by create_rs_decode_matrix()
-// c contains k different code words of n leaving out the erasure data items, their order according to inv_reduced_generator_matrix_t creation
+// c contains k different code words of n leaving out the erasure data items,
+// their order according to inv_reduced_generator_matrix_t creation
 // return number of calculated code words, on success returns nb_req_indexes
 uint8_t rs_decode(rs_ctx const * restrict const rs, uint8_t const * restrict const inv_reduced_generator_matrix_t,
-                  uint8_t const * restrict const c, uint8_t const * restrict const req_indexes, uint8_t nb_req_indexes, uint8_t * restrict const v);
+                  uint8_t const * restrict const c, uint8_t const * restrict const req_indexes, uint8_t nb_req_indexes,
+                  uint8_t * restrict const v);
 
 
 // same as rs_decode but works on data arrays
@@ -246,9 +252,11 @@ uint8_t rs_decode_block(rs_ctx const * restrict const rs, uint8_t const * restri
 uint8_t rs_check(rs_ctx const * restrict const rs, uint8_t const * restrict const c, uint8_t * restrict const e);
 
 
-// calculate the required code word values based on message values into r (code word values count is n, so its indexes go through 0 ... n-1)
+// calculate the required code word values based on message values into r
+// (codeword values count is n, so its indexes go through 0 ... n-1)
 // because we use systematic generator matrix,  only the last n-k items of the code word values may be required to calculate
-// (because on the first k position there are the systematic input message word values, so no need to calculate anything on the 0 .. k elements)
+// (because on the first k position there are the systematic input message word values,
+// no need to calculate anything on the 0 .. k elements)
 // req_indexes holds the required code word index values, they may be in any order but values must be between n-k ... n-1
 // u contains the message block values in normal neutral ascending order
 // nb_req_indexes must be between 1 ... n-k, and size of r vector must be equal or greater than nb_req_indexes
