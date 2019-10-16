@@ -51,9 +51,11 @@ static inline uint8_t gf_div_inline(rs_ctx const * const rs, uint8_t a, uint8_t 
   // this is an exp table based slower version
   //  if (a == 0 || b == 0)  // b == 0 is an error
   //    return 0;
-  //  // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha, by definition because th eorder of alpha is GF_MUL_ORER
+  //  // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha,
+  //  // by definition because th eorder of alpha is GF_MUL_ORER
   //  // a - b == GF_MUL_ORDER - b + a
-  //  int16_t exp = GF_MUL_ORDER - rs->log_table[b] + rs->log_table[a]; // exp table is oversized so no need for modulo by  GF_MUL_ORDER
+  //  int16_t exp = GF_MUL_ORDER - rs->log_table[b] + rs->log_table[a];
+  //  //exp table is oversized so no need for modulo by  GF_MUL_ORDER
   //  return rs->exp_table[ exp ];
 }
 
