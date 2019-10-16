@@ -44,7 +44,7 @@
 >    uint8_t rs_n=15, rs_k=12;  
 >    rs_ctx rs = rs_init(rs_n, rs_k);  
    
-  To calculate a R-S code word vector last forward error corrector part:
+  To calculate a R-S code word vector last forward error corrector part:  
   (code word bytes on the first k position are the same as input message bytes,
    it means no need to calculate them, but only the last n-k bytes)  
    
