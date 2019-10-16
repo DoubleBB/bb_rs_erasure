@@ -35,16 +35,18 @@ Reed-Solomon code implementation for erasure coding
  
  Typical usage steps
  
-  Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.
-  Let n=15 and k=12.
-  This means that fec values are 3 bytes appended to the 12 bytes long input messages
-  A full codewrod length will be 15 bytes long. This implentation use systematic
+ Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.
+ 
+ Let n=15 and k=12.
+ 
+ This means that fec values are 3 bytes appended to the 12 bytes long input messages.
+ A full codewrod length will be 15 bytes long. This implentation use systematic
   generator matrix, so in each codeword on positions 0...11
   the original message bytes will be, and index positions 12..14 hold fec values.
  
   uint8_t rs_n=15, rs_k=12;
   rs_ctx rs = rs_init(rs_n, rs_k);
- 
+   
   To calculate a R-S code word vector last forward error corrector part:
   (code word bytes on the first k position are the same as input message bytes,
    it means no need to calculate them, but only the last n-k bytes)
