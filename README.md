@@ -31,9 +31,8 @@
   It depends on your use case. But rule of thumb, the bigger the chance you lost
   data, choose more difference between n and k. Bigger the n-k value,
   You will have more error correction info appended to the original data.  
-   
-   
-##Typical usage steps
+      
+## Typical usage steps
    
   Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.  
   Let n=15 and k=12.  
