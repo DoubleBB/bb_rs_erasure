@@ -25,7 +25,7 @@
   to recover the original code word data.
   Reed-Solomon code is even capable to correct if some bytes in your codeword altered,
   but this implementation only able to signal the altering, not correc them.
-  This implementation use GF(2**8) for Reed-Solomon code aritmetic.
+  This implementation use GF(2^8) for Reed-Solomon code aritmetic.
   So the code word items are bytes and you may choose value of n between 1 and 255 freely.
   Value of k may be betwwen 1 and n-1. How to choose values for n and k?
   It depends on your use case. But rule of thumb, the bigger the chance you lost
@@ -39,8 +39,8 @@
   Let n=15 and k=12.  
   This means that fec values are 3 bytes appended to the 12 bytes long input messages.
   A full codeword length will be 15 bytes long. This implentation use systematic
-  generator matrix, so in each codeword on positions 0...11  
-  the original message bytes will be, and index positions 12..14 hold fec values.  
+  generator matrix, so in each codeword on positions 0 .. 11  
+  the original message bytes will be, and index positions 12 .. 14 hold fec values.  
    
 >    uint8_t rs_n=15, rs_k=12;  
 >    rs_ctx rs = rs_init(rs_n, rs_k);  
@@ -50,7 +50,7 @@
    it means no need to calculate them, but only the last n-k bytes)  
    
 >    uint8_t r[3], u[12] = { 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!'};  
->    uint8_t w[3] = {12,13,14};  
+>    uint8_t w[3] = {12, 13, 14};  
 >    
 >    uint8_t created_rs_code_word_count = rs_encode(rs, u, w, rs->n - rs->k, r);  
    
@@ -61,24 +61,24 @@
 >    uint8_t c[15];  
    
   Put the original message on the first k positions:    
->    memcpy(c,u,12);  
+>    memcpy(c, u, 12);  
    
   Append the r0, r1, r2 values to the message  
->    memcpy(&c[12],r,3);  
+>    memcpy(&c[12], r, 3);  
  
   Now c holds the whole codeword.  
-  Now, Let's check the whole code word wheter it is error free:  
+  Let's check the whole code word wheter it is error free:  
    
 >    uint8_t e[3];  
 >    uint8_t syndrome_is_ok = rs_check(rs, c, e);  
    
    
-  Recalculate some missing message bytes based on any 12 byte of the original message:  
-  Let' assume we lost only 2 bytes of codeword according to the followings:  
+    Let' assume we lost only 2 bytes of codeword according to the followings:  
    
   'h', ?, 'l', ?, 'o', ' ', w, 'o', 'r', 'l', 'd', '!', r0, r1, r2  
     
-  Put the really available first 12 bytes of codeword  into v  
+  Recalculate some missing message bytes based on any 12 byte of the original message:  
+  Put the really available first 12 bytes of codeword  into v:    
 >    uint8_t v[12] = { 'h', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!', r0, r1};  
   (in fact you may choose any 12 of available 13 data bytes)  
    
