@@ -51,7 +51,7 @@
    
     uint8_t r[3], u[12] = { 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!'};  
     uint8_t w[3] = {12,13,14};  
-   
+    
     uint8_t created_rs_code_word_count = rs_encode(rs, u, w, rs->n - rs->k, r);  
    
   There maybe cases when you do not want to create all the fec bytes. rs_encode function
@@ -95,18 +95,18 @@
  
     uint8_t recalculated_count rs_decode(rs, v, inv_reduced_generator_matrix_t, v, z, 2, m)
  
-  m will hold the required missing values as follows:
-    m[0] == 'e'
-    m[1] == 'l'
+  m will hold the required missing values as follows:  
+  m[0] == 'e'  
+  m[1] == 'l'  
  
   Sometimes you do not want to re-create all the missing bytes. rs_decode function
   makes it possible to choose which index positons to recalculate (see z vector)  
    
   Do mot forget to free the decode matrix:  
-    free(inv_reduced_generator matrix);  
+>    free(inv_reduced_generator matrix);;  
    
   To free all the rs data:  
-    rs_free(rs)  
+>    rs_free(rs);  
    
    
   If you have several messages to encode them at once use rs_encode_block and
