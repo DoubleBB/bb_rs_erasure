@@ -68,7 +68,7 @@
  *   and function descriptions. Because there is a finite chance that I use
  *   different words for that you are familiar with.
  *
- *   A Reed-Solomon code word over GF(2***8) consists of n bytes,
+ *   A Reed-Solomon code word over GF(2**8) consists of n bytes,
  *   and the original message consist of k bytes. Encoding means,
  *   you create the output n bytes based on the input k bytes.
  *   This implementation use systematic generator matrices, so the first k bytes
@@ -179,27 +179,25 @@
  */
 
 
-/*
- *  Holds parameters and lookup tables
- */
+// Holds parameters and lookup tables
 typedef struct rs_ctx_struct {
-   uint8_t n;
-   uint8_t k;
-   uint8_t * g; // coefficients of R-S generator polinom x**0 ... x**(n-k)
-   uint8_t * generator_matrix; // k x n systematic generator matrix for Reed-Solomon code with parameters (n,k) over GF(2^8)
-   uint8_t * generator_matrix_t; // transponse of generator matrix (to save some index calculation during column operations on generator matrix)
-   uint8_t * parity_matrix; // n x k systematic "parity check" matrix for Reed-Solomon code with parameters (n,k) over GF(2^8)
+  uint8_t n;
+  uint8_t k;
+  uint8_t * g; // coefficients of R-S generator polinom x**0 ... x**(n-k)
+  uint8_t * generator_matrix; // k x n systematic generator matrix for Reed-Solomon code with parameters (n,k) over GF(2^8)
+  uint8_t * generator_matrix_t; // transponse of generator matrix (to save some index calculation during column operations on generator matrix)
+  uint8_t * parity_matrix; // n x k systematic "parity check" matrix for Reed-Solomon code with parameters (n,k) over GF(2^8)
 
 
-   // to speed up GF calculations we use table lookups
-   uint8_t * exp_table;  // size of GF_MUL_ORDER
-   uint8_t * log_table;  // size of 2 * GF_MIL_ORDER
-   uint8_t * div_table;  // size of GF_ORDER * GF_ORDER
-   uint8_t * mul_table;  // size of GF_ORDER * GF_ORDER
+  // to speed up GF calculations we use table lookups
+  uint8_t * exp_table;  // size of GF_MUL_ORDER
+  uint8_t * log_table;  // size of 2 * GF_MIL_ORDER
+  uint8_t * div_table;  // size of GF_ORDER * GF_ORDER
+  uint8_t * mul_table;  // size of GF_ORDER * GF_ORDER
 } rs_ctx;
 
 
- // H * Gt == 0 by definition, so calculate it and check, return 0 on failure and 1 if all result elements are zero
+// H * Gt == 0 by definition, so calculate it and check, return 0 on failure and 1 if all result elements are zero
 uint8_t check_parity_and_generator_matrix(rs_ctx * rs);
 
 
