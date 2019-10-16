@@ -6,7 +6,7 @@ Reed-Solomon code implementation for erasure coding
   and function descriptions. Because there is a finite chance that I use
   different words for that you are familiar with.
  
-  A Reed-Solomon code word over GF(2***8) consists of n bytes,
+  A Reed-Solomon code word over GF(2**8) consists of n bytes,
   and the original message consist of k bytes. Encoding means,
   you create the output n bytes based on the input k bytes.
   This implementation use systematic generator matrices, so the first k bytes
