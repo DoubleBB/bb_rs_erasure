@@ -24,7 +24,7 @@
 #include <string.h>
 
 
-// in GF(2**m) adding is the XORing the two component ans adding is the same as substraction
+// in GF(2**m) adding is the XORing the two component and adding is the same as substraction
 static inline uint8_t gf_add_inline(uint8_t a, uint8_t b) {
 
   return a^b;
@@ -34,11 +34,13 @@ static inline uint8_t gf_add_inline(uint8_t a, uint8_t b) {
 // multiply two numbers in GF aritmetic
 static inline uint8_t gf_mul_inline(rs_ctx const * const rs, uint8_t a, uint8_t b) {
 
-  return rs->mul_table[a * GF_ORDER + b]; // slightly faster than rs->exp_table[ rs->log_table[a] + rs->log_table[b] ]
+  return rs->mul_table[a * GF_ORDER + b];
 
-  //  an exp table based slower version
+  // this is an exp table based slower version
+  //
   //  if (a == 0 || b == 0) return 0;
-  //  return rs->exp_table[ rs->log_table[a] + rs->log_table[b] ];  // exp table is oversized so no need for modulo by  GF_MUL_ORDER on the sum
+  //  //exp table is oversized so no need for modulo by  GF_MUL_ORDER on the sum
+  //  return rs->exp_table[ rs->log_table[a] + rs->log_table[b] ];
 }
 
 
@@ -46,9 +48,10 @@ static inline uint8_t gf_mul_inline(rs_ctx const * const rs, uint8_t a, uint8_t 
 static inline uint8_t gf_div_inline(rs_ctx const * const rs, uint8_t a, uint8_t b) {
 
 
-  return rs->div_table[a * GF_ORDER + b]; // faster than rs->exp_table[ (int16_t) GF_MUL_ORDER - rs->log_table[b] + rs->log_table[a] ]
+  return rs->div_table[a * GF_ORDER + b];
 
   // this is an exp table based slower version
+  //
   //  if (a == 0 || b == 0)  // b == 0 is an error
   //    return 0;
   //  // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha,
