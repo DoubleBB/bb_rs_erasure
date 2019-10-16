@@ -404,7 +404,8 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
       for(i = current_row + 1; i < nb_rows; i++) {
         uint8_t f = gf_div_inline(rs, source_matrix[i * nb_columns + current_col] , source_matrix[current_row * nb_columns + current_col]);
 
-        // Do for all elements in current row in result matrix (skip if f==0 : no need to add zero (each gf_mul result would be zero))
+        // Do for all elements in current row in result matrix
+        // (skip if f==0 : no need to add zero (each gf_mul result would be zero))
         if (f!=0)
           for(j = 0; j < nb_columns; j++)
             if (result_matrix[current_row * nb_columns + j] != 0) // no need to add zero (gf_mul result is zero)
@@ -414,7 +415,8 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
         // Fill with zeros the lower part of pivot column in source matrix
         source_matrix[i * nb_columns + current_col] = 0;
 
-        // Do for all remaining elements in current row in source matrix (skip if f==0 : no need to add zero (each gf_mul result would be zero))
+        // Do for all remaining elements in current row in source matrix
+        // (skip if f==0 : no need to add zero (each gf_mul result would be zero))
         if (f!=0)
           for(j = current_col + 1; j < nb_columns; j++)
             if (source_matrix[current_row * nb_columns + j] != 0)  // no need to add zero (gf_mul result is zero)
