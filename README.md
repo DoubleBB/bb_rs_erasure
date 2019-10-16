@@ -65,7 +65,7 @@
   Append the r0, r1, r2 values to the message  
 >    memcpy(&c[12], r, 3);  
 
-  To save these two memory copies and have the whole code word into u, we could declare u as 15 bytes long array and set r as a pointer to the 13th bytes.  
+  To save these two memory copies and get the whole codeword into u, we could declare u as 15 bytes long array and set r as a pointer to the 13th bytes.  
   
   Now c holds the whole codeword.  
   Let's check the whole code word wheter it is error free:  
