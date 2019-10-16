@@ -76,8 +76,8 @@
    
   'h', ?, 'l', ?, 'o', ' ', w, 'o', 'r', 'l', 'd', '!', r0, r1, r2  
     
-  Recalculate some missing message bytes based on any 12 byte of the original message:  
-  Put the really available first 12 bytes of codeword  into v:    
+  Recalculate some missing message bytes based on any 12 byte of the 15 bytes codeword:  
+  Put the really available first 12 bytes of codeword into v:    
 >    uint8_t v[12] = { 'h', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!', r0, r1};  
   (in fact you may choose any 12 of available 13 data bytes)  
    
