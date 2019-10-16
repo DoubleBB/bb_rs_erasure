@@ -17,7 +17,7 @@
   Due to properties of Reed-Solomon code, any k bytes of the codeword
   may be used to re-create all the n bytes of the whole codeword,
   and thus recover k bytes of the original message.
-  The only requirement for you when you lost bytes of codewrod,
+  The only requirement for you when you lost bytes of codeword,
   is to know what the k bytes original positions were
   in the original codeword. The lost data byte positions are called erasure errors.
   So if you lost up to n-k bytes of the codeword,
