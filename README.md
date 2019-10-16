@@ -33,7 +33,7 @@
   You will have more error correction info appended to the original data.  
    
    
- <h>Typical usage steps</h>  
+<h>Typical usage steps</h>  
    
   Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.  
   Let n=15 and k=12.  
@@ -73,7 +73,7 @@
 >    uint8_t syndrome_is_ok = rs_check(rs, c, e);  
    
    
-    Let' assume we lost only 2 bytes of codeword according to the followings:  
+  Let' assume we lost only 2 bytes of codeword according to the followings:  
    
   'h', ?, 'l', ?, 'o', ' ', w, 'o', 'r', 'l', 'd', '!', r0, r1, r2  
     
