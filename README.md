@@ -33,7 +33,7 @@
   You will have more error correction info appended to the original data.  
    
    
-<h>Typical usage steps</h>  
+##Typical usage steps
    
   Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.  
   Let n=15 and k=12.  
@@ -109,5 +109,5 @@
 >    rs_free(rs);  
    
    
-  If you have several messages to encode them at once use <em>rs_encode_block</em> and
-  <em>rs_decode_block</em> to decode code vectors vectors  accordingly.  
+  If you have several messages to encode them at once use <em>rs_encode_block()</em> and
+  <em>rs_decode_block()</em> to decode code vectors vectors  accordingly.  
