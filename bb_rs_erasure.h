@@ -252,6 +252,7 @@ uint8_t rs_decode_block(rs_ctx const * restrict const rs, uint8_t const * restri
 uint8_t rs_check(rs_ctx const * restrict const rs, uint8_t const * restrict const c, uint8_t * restrict const e);
 
 
+
 // calculate the required code word values based on message values into r
 // (codeword values count is n, so its indexes go through 0 ... n-1)
 // because we use systematic generator matrix,  only the last n-k items of the code word values may be required to calculate

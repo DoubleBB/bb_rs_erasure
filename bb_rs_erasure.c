@@ -74,7 +74,7 @@ static void free_gf_tables(rs_ctx * rs) {
 static uint8_t init_gf_tables(rs_ctx * rs) {
 
   // allocate and zero memory for tables
-  rs->exp_table = (uint8_t *) calloc(2 * GF_ORDER, sizeof(uint8_t)); // max power value of adding two alphas as primitive element is  GF_MUL_ORDER + GF_MUL_ORDER
+  rs->exp_table = (uint8_t *) calloc(2 * GF_ORDER, sizeof(uint8_t)); // max power value of adding two alphas as primitive element is GF_MUL_ORDER + GF_MUL_ORDER
   rs->log_table = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t)); // exp values range between 0 and GF_MUL_ORDER-1  alpha**GF_MUL_ORDER = 1
   rs->div_table = (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
   rs->mul_table = (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
@@ -114,7 +114,8 @@ static uint8_t init_gf_tables(rs_ctx * rs) {
   for(i=0; i<=GF_MUL_ORDER; i++)
     for(j=0; j<=GF_MUL_ORDER; j++)
       if (i != 0 && j != 0)
-        rs->mul_table[i * GF_ORDER + j] = rs->exp_table[ rs->log_table[i] + rs->log_table[j] ]; // mod by GF_MUL_ORDER is unnecessary because size of exp_table is 2 * GF_ORDER
+        rs->mul_table[i * GF_ORDER + j] = rs->exp_table[ rs->log_table[i] + rs->log_table[j] ];
+        // mod by GF_MUL_ORDER is unnecessary because size of exp_table is 2 * GF_ORDER
 
   // a full division table
   for(i=0; i<=GF_MUL_ORDER; i++)
@@ -407,7 +408,8 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
         if (f!=0)
           for(j = 0; j < nb_columns; j++)
             if (result_matrix[current_row * nb_columns + j] != 0) // no need to add zero (gf_mul result is zero)
-              GF_ADD_INTO(result_matrix[i * nb_columns + j], gf_mul_inline(rs, result_matrix[current_row * nb_columns + j], f)); // subs is the same as add
+              GF_ADD_INTO(result_matrix[i * nb_columns + j], gf_mul_inline(rs, result_matrix[current_row * nb_columns + j], f));
+              // subs is the same as add in GF with base prime 2
 
         // Fill with zeros the lower part of pivot column in source matrix
         source_matrix[i * nb_columns + current_col] = 0;
@@ -416,7 +418,8 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
         if (f!=0)
           for(j = current_col + 1; j < nb_columns; j++)
             if (source_matrix[current_row * nb_columns + j] != 0)  // no need to add zero (gf_mul result is zero)
-              GF_ADD_INTO(source_matrix[i * nb_columns + j], gf_mul_inline(rs, source_matrix[current_row * nb_columns + j], f)); // subs is the same as add
+              GF_ADD_INTO(source_matrix[i * nb_columns + j], gf_mul_inline(rs, source_matrix[current_row * nb_columns + j], f));
+              // subs is the same as add in GF with base prime 2
 
       } // for
 
@@ -441,7 +444,9 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
       if (source_matrix[j * nb_columns + i] != 0) // no need to add zero to anything
         for(t=0;t<nb_columns;t++)
           if (result_matrix[i * nb_columns + t] != 0)  // multiply by zero is zero, so no need to add zero to any item
-            GF_ADD_INTO(result_matrix[j * nb_columns + t], gf_mul_inline(rs, result_matrix[i * nb_columns + t], source_matrix[j * nb_columns + i])); // subs is the same as add
+            GF_ADD_INTO(result_matrix[j * nb_columns + t], gf_mul_inline(rs, result_matrix[i * nb_columns + t], source_matrix[j * nb_columns + i]));
+            // subs is the same as add in GF with base prime 2
+
 
       source_matrix[j * nb_columns + i] = 0; // just for clarity
     } // for
@@ -676,7 +681,8 @@ uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict con
       a = 0; // must be iit
 
       for(i=0; i<rs->k; i++)
-        GF_ADD_INTO(a, gf_mul_inline(rs, u[i], rs->generator_matrix_t[row_start + i])); // using transponse of generator matrix to save a multiplication
+        GF_ADD_INTO(a, gf_mul_inline(rs, u[i], rs->generator_matrix_t[row_start + i]));
+        // using transponse of generator matrix to save a multiplication by row_start
 
       r[j] = a;
       calculated_index_count ++;
