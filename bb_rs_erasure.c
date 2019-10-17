@@ -372,15 +372,16 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
   } // if
 
   // init result matrix as an identity matrix
-  for(i=0; i<nb_rows;i++)
+  for(i=0; i<nb_rows; i++)
     result_matrix[i * nb_columns + i] = 1;
 
   // go trough the source matrix
   while (current_row < nb_rows && current_col < nb_columns) {
 
-    // Find the pivot in source matrix at/below current row in curent col
+    // Find the pivot in source matrix at/below current row in curent column
     // in general Gauss elimination process pivot item is the abs_max to achive best numerical stability but
-    // here we can choose pivot as the first non-null item because we are in GF => no need for improved numerical stability
+    // here we can choose pivot as the first non-null item because
+    // we are in GF => no need for improved numerical stability
     uint16_t pivot_row = current_row;
     uint8_t pivot_val = source_matrix[current_row * nb_columns + current_col];
 
@@ -688,7 +689,8 @@ uint8_t rs_check(rs_ctx const * restrict const rs, uint8_t const * restrict cons
 
 
 // because we use systematic generator matrix calculate only the last n-k items of the code word but only required ones
-// required index values may be in any order but values must be between n-k ... n-1  (because on the first k position there are the systematic input code words)
+// required index values may be in any order but values must be between n-k ... n-1
+// (because on the first k position there are the systematic input code words)
 // u contains the message block items in normal neutral ascending order
 uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict const u,
                   uint8_t const * restrict const req_indexes, const uint8_t nb_req_indexes, uint8_t * restrict const r) {
