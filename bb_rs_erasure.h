@@ -200,13 +200,16 @@ typedef struct rs_ctx_struct {
 } rs_ctx;
 
 
-// H * Gt == 0 by definition, so calculate it and check, return 0 on failure and 1 if all result elements are zero
+// H * Gt == 0 by definition, so calculate it and check,
+// return 0 on failure and 1 if all result elements are zero
 uint8_t check_parity_and_generator_matrix(rs_ctx * rs);
 
 
 
-// creates a reduced generator matrix based on provided column indexes and invert that matrix and finally transponse it
-// number of provided column indexes is k, their order is indifferent and may be any k of n possible index values
+// creates a reduced generator matrix based on provided column indexes and
+// then invert that matrix and finally transponse it
+// number of provided column indexes is k,
+// their order is indifferent and may be any k of n possible index values
 // (but you must provide data blocks to decode function in this very same order)
 // returns NULL on error or pointer to the result matrix
 // caller must free up the result matrix

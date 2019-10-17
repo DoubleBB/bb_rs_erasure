@@ -25,14 +25,14 @@
 
 
 // in GF(2**m) adding is the XORing the two component and adding is the same as substraction
-static inline uint8_t gf_add_inline(uint8_t a, uint8_t b) {
+static inline uint8_t gf_add(uint8_t a, uint8_t b) {
 
   return a^b;
 }
 
 
 // multiply two numbers in GF aritmetic
-static inline uint8_t gf_mul_inline(rs_ctx const * const rs, uint8_t a, uint8_t b) {
+static inline uint8_t gf_mul(rs_ctx const * const rs, uint8_t a, uint8_t b) {
 
   return rs->mul_table[a * GF_ORDER + b];
 
@@ -45,7 +45,7 @@ static inline uint8_t gf_mul_inline(rs_ctx const * const rs, uint8_t a, uint8_t 
 
 
 // calculating a - b in GF
-static inline uint8_t gf_div_inline(rs_ctx const * const rs, uint8_t a, uint8_t b) {
+static inline uint8_t gf_div(rs_ctx const * const rs, uint8_t a, uint8_t b) {
 
 
   return rs->div_table[a * GF_ORDER + b];
@@ -164,34 +164,37 @@ uint8_t gf_simple_polynom_divison_in_place(rs_ctx * rs, uint8_t * c, uint8_t n, 
   for(i=n-1; i>=0; i--) {
     prev_remainder = c[i];
     c[i] = remainder;
-    remainder = (a && remainder) ? gf_add_inline(prev_remainder, gf_mul_inline(rs, remainder, a)) : prev_remainder;
+    remainder = (a && remainder) ? gf_add(prev_remainder, gf_mul(rs, remainder, a)) : prev_remainder;
   } // for
   return remainder;
 }
 
 
 
-// Given the n+1 coefficients of a polynomial of degree n in u[0..n], and the m+1 coefficients
-// of another polynomial of degree m in v[0..m], divide the polynomial u by the polynomial v
-// resulting a quotient polynomial whose coefficients are returned in q[0..n], and a
-// remainder polynomial whose coefficients are returned in r[0..n]. The elements r[m...n]
-// and q[n-m+1..n] are returned as zero.
 // long division method as by pencil and paper in school but with GF aritmetic
+// given the n+1 coefficients of a polynomial of degree n in u[0 .. n], and the m+1 coefficients
+// of another polynomial of degree m in v[0 .. m], divide the polynomial u by the polynomial v
+// resulting a quotient polynomial whose coefficients are returned in q[0 .. n-m], and a
+// remainder polynomial whose coefficients are returned in r[0 .. n].
+// The elements in r[m .. n] are always returned as zero because highest non-zero power coefficient
+// of r is m-1 or less, but we use r[] for calculations, so its size must be n+1
 // m is NOT greater than n
 static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint8_t * v, uint8_t m, uint8_t * q, uint8_t * r) {
-  int16_t i,j; // i is intentionally signed
-  for(j=0; j<=n; j++) {
-    r[j] = u[j];  // init remainder as full polynomial
-    q[j] = 0; // q[n-m+1..n] remains zero
-  } // for
+  int16_t i,j; // i and j are intentionally signed and bigger than uint8_t
+
+  memcpy(r,u,n+1); // init remainder as full polynomial
+  memset(q,0,n-m+1); // later we will fill up q[] step-by-step
+
+
   // the result created in n-m+1 steps
   for(i=n-m; i>=0; i--) {
-      // calculate quotient of current power in remainder by dividing the actual tag
-      q[i] = gf_div_inline(rs, r[m+i], v[m]); // r[m+k] / v[m]
+      // calculate quotient of current power coefficients in remainder by dividing the actual coefficients
+      q[i] = gf_div(rs, r[m+i], v[m]); // r[m+k] / v[m]
 
       // substract the q*v from the remainder
-      for (j=m+i-1; j>=i && q[i]; j--) // skip whole step if q[i] is zero
-        GF_ADD_INTO(r[j], gf_mul_inline(rs, q[i], v[j-i]));  // r[j] - q[k]*v[j-k]  addition is the same as substraction
+      if (!q[i]) // skip whole step if q[i] is zero
+        for (j=m+i-1; j>=i; j--)
+          GF_ADD_INTO(r[j], gf_mul(rs, q[i], v[j-i]));  // r[j] - q[k]*v[j-k]  addition is the same as substraction
   } // for
   for(j=m; j<=n; j++)
     r[j] = 0;
@@ -234,7 +237,7 @@ static uint8_t * create_rs_generator_matrix(rs_ctx * rs) {
     p[i]=1;
     gf_polynom_div(rs, p, i, rs->g, rs->n - rs->k, q, r);
     row--;
-    // copy the result coefficients into the last n-k position of the actual matrix row
+    // copy the result remainder coefficients into the last n-k position of the actual matrix row
     for(j=0; j<(rs->n - rs->k); j++)
       rs->generator_matrix[ row * rs->n + rs->k + j ] = r[j];
     rs->generator_matrix[ row * rs->n + row ] = 1;  // this will be the systematix part
@@ -265,7 +268,7 @@ uint8_t check_parity_and_generator_matrix(rs_ctx * rs) {
   for(j=0; j<(rs->n - rs->k); j++)
     for(m=0; m<rs->k; m++)
       for(i=0;i<rs->n;i++)
-        GF_ADD_INTO(s[j * rs->k + m], gf_mul_inline(rs, rs->parity_matrix[ j * rs->n + i ], rs->generator_matrix[ m * rs->n + i] ));
+        GF_ADD_INTO(s[j * rs->k + m], gf_mul(rs, rs->parity_matrix[ j * rs->n + i ], rs->generator_matrix[ m * rs->n + i] ));
 
 
   // check HxGt result matrix for all zero values
@@ -316,7 +319,7 @@ static void gf_polynom_mul(rs_ctx * rs, uint8_t * u, uint8_t n, uint8_t * v, uin
 
   for (i=0; i<=m; i++)
     for (j=0; j<=n && v[i]; j++) // skip if v[i] == 0
-      GF_ADD_INTO(r[i+j], gf_mul_inline(rs, u[j], v[i])); // r[i+j] = gf_add(r[i+j], gf_mul(rs, u[j], v[i]));
+      GF_ADD_INTO(r[i+j], gf_mul(rs, u[j], v[i])); // r[i+j] = gf_add(r[i+j], gf_mul(rs, u[j], v[i]));
 
 }
 
@@ -420,14 +423,14 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
 
       // Do for all rows below pivot in both matrix
       for(i = current_row + 1; i < nb_rows; i++) {
-        uint8_t f = gf_div_inline(rs, source_matrix[i * nb_columns + current_col] , source_matrix[current_row * nb_columns + current_col]);
+        uint8_t f = gf_div(rs, source_matrix[i * nb_columns + current_col] , source_matrix[current_row * nb_columns + current_col]);
 
         // Do for all elements in current row in result matrix
         // (skip if f==0 : no need to add zero (each gf_mul result would be zero))
         if (f!=0)
           for(j = 0; j < nb_columns; j++)
             if (result_matrix[current_row * nb_columns + j] != 0) // no need to add zero (gf_mul result is zero)
-              GF_ADD_INTO(result_matrix[i * nb_columns + j], gf_mul_inline(rs, result_matrix[current_row * nb_columns + j], f));
+              GF_ADD_INTO(result_matrix[i * nb_columns + j], gf_mul(rs, result_matrix[current_row * nb_columns + j], f));
               // subs is the same as add in GF with base prime 2
 
         // Fill with zeros the lower part of pivot column in source matrix
@@ -438,7 +441,7 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
         if (f!=0)
           for(j = current_col + 1; j < nb_columns; j++)
             if (source_matrix[current_row * nb_columns + j] != 0)  // no need to add zero (gf_mul result is zero)
-              GF_ADD_INTO(source_matrix[i * nb_columns + j], gf_mul_inline(rs, source_matrix[current_row * nb_columns + j], f));
+              GF_ADD_INTO(source_matrix[i * nb_columns + j], gf_mul(rs, source_matrix[current_row * nb_columns + j], f));
               // subs is the same as add in GF with base prime 2
 
       } // for
@@ -457,14 +460,14 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
     if (source_matrix[i * nb_columns + i] != 1)  // division by 1 is unneeded because alpha**0 = 1
       for(t=0;t<nb_columns;t++)
         if (result_matrix[i * nb_columns + t] != 0)
-          result_matrix[i * nb_columns + t] = gf_div_inline(rs, result_matrix[i * nb_columns + t], source_matrix[i * nb_columns + i]);
+          result_matrix[i * nb_columns + t] = gf_div(rs, result_matrix[i * nb_columns + t], source_matrix[i * nb_columns + i]);
 
     // in each column add the multiplied value of i-th row to each upper row
     for(j=i-1;j>=0;j--) {
       if (source_matrix[j * nb_columns + i] != 0) // no need to add zero to anything
         for(t=0;t<nb_columns;t++)
           if (result_matrix[i * nb_columns + t] != 0)  // multiply by zero is zero, so no need to add zero to any item
-            GF_ADD_INTO(result_matrix[j * nb_columns + t], gf_mul_inline(rs, result_matrix[i * nb_columns + t], source_matrix[j * nb_columns + i]));
+            GF_ADD_INTO(result_matrix[j * nb_columns + t], gf_mul(rs, result_matrix[i * nb_columns + t], source_matrix[j * nb_columns + i]));
             // subs is the same as add in GF with base prime 2
 
 
@@ -626,11 +629,14 @@ rs_ctx * rs_init(uint8_t n, uint8_t k) {
 
 
 
-// calculate original data words at specified erasure index position (i.e. original code block position) based on k different code words
+// calculate original data words at specified erasure index position (i.e. original code block
+// position) based on k different code words
 // require the decode matrix (transponse of the inverted reduced generator matrix)
-// c contains k different code words of n in ascending order leaving out the erasure data items according to inv_reduced_generator_matrix_t creation
+// c contains k different code words of n in ascending order leaving out the erasure data items
+// according to inv_reduced_generator_matrix_t creation
 uint8_t rs_decode(rs_ctx const * restrict const rs, uint8_t const * restrict const inv_reduced_generator_matrix_t,
-                  uint8_t const * restrict const c, uint8_t const * restrict const req_indexes, uint8_t nb_req_indexes, uint8_t * restrict const v) {
+                  uint8_t const * restrict const c, uint8_t const * restrict const req_indexes, uint8_t nb_req_indexes,
+                  uint8_t * restrict const v) {
 
   int16_t i,j;
   uint8_t calculated_index_count = 0;
@@ -639,12 +645,12 @@ uint8_t rs_decode(rs_ctx const * restrict const rs, uint8_t const * restrict con
 
   for(j=0; j<nb_req_indexes; j++)
     if (req_indexes[j]<rs->k) {
-      row_start = req_indexes[j] * rs->k; // this was the reason for transponing the inverted matrix
+      row_start = req_indexes[j] * rs->k; // this was the reason for transponsing the inverted matrix
                                            // to optimize matrix item access by pre computing row start index
       a = 0;
       // multiply the reduced c received message polynom with proper column of the inverted reduced generator matrix
       for(i=0; i<rs->k; i++)
-        GF_ADD_INTO(a, gf_mul_inline(rs, c[i], inv_reduced_generator_matrix_t[ row_start + i ] )); // j
+        GF_ADD_INTO(a, gf_mul(rs, c[i], inv_reduced_generator_matrix_t[ row_start + i ] )); // j
       v[j] = a;
       calculated_index_count ++;
 
@@ -671,7 +677,7 @@ uint8_t rs_check(rs_ctx const * restrict const rs, uint8_t const * restrict cons
     a = 0; // must be init
     row_start = j * rs->n;
     for(i=0;i<rs->n;i++)
-      GF_ADD_INTO(a, gf_mul_inline(rs, rs->parity_matrix[ row_start + i ], c[i] ));
+      GF_ADD_INTO(a, gf_mul(rs, rs->parity_matrix[ row_start + i ], c[i] ));
     e[j] = a;
     if (a) // should be zero
       syndrome_vector_is_ok = 0;
@@ -701,7 +707,7 @@ uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict con
       a = 0; // must be iit
 
       for(i=0; i<rs->k; i++)
-        GF_ADD_INTO(a, gf_mul_inline(rs, u[i], rs->generator_matrix_t[row_start + i]));
+        GF_ADD_INTO(a, gf_mul(rs, u[i], rs->generator_matrix_t[row_start + i]));
         // using transponse of generator matrix to save a multiplication by row_start
 
       r[j] = a;
