@@ -86,14 +86,14 @@
   (in fact you may choose any 12 of available 13 data bytes)  
    
   We lost data on index positions 1 and 3 and require both of them to recalculate:  
->    uint8_t z[2] = {1,3};  
+>    uint8_t z[2] = {1, 3};  
  
   First we need to calculate a new decode matrix based on available data indexes:  
   (choose any 12 of available 13 data index values but same ones as you filled up v vector)  
   Please notice that this decode matrix depends only on available indexes and not the actual data,
   so you don not need to recreate it as long as you decode the same erasure pattern.  
    
->    uint8_t avail_col_indexes[12] = {0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}  
+>    uint8_t avail_col_indexes[12] = {0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};  
 >    uint8_t inv_reduced_generator_matrix_t = create_rs_reduced_gen_matrix(rs, avail_col_indexes);
 > 
 >    uint8_t recalculated_count rs_decode(rs, v, inv_reduced_generator_matrix_t, v, z, 2, m)
