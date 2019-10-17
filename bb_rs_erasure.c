@@ -185,7 +185,7 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
   memcpy(r,u,n+1); // init remainder as full polynomial
 
   // the result created in n-m+1 steps
-  for(i=n-m; i>=0; i--) {
+  for(i=n-m; i>=0; i--)
     if (r[m+i]) { // skip this step if r[i+m] is zero
 
       // calculate quotient of current power coefficients in remainder by dividing the actual coefficients
@@ -202,7 +202,7 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
     } else
       q[i] = 0;
 
-  } // for
+
 }
 
 
