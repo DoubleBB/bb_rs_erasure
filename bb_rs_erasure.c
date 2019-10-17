@@ -113,7 +113,7 @@ static uint8_t init_gf_tables(rs_ctx * rs) {
     // pre-calculating x for next table item
     x <<= 1; // multiplyig by 2 == shift 1 bit to left
     if (x & GF_ORDER)
-      x ^= GF_PRIMITIVE_POLYNOMIAL; // substituting the highest element with primitive polynom lower elements.
+      x ^= GF_PRIMITIVE_POLYNOMIAL; // substituting the 2**8 element with primitive polynom lower elements.
                                     // it also clears the highest bit
                                     // this substitution comes from the fact that
                                     // alpha is root of primitive polynomial by definition
@@ -201,7 +201,6 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
 
     } else
       q[i] = 0;
-
 
 }
 
@@ -502,7 +501,7 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
 // returns a pointer to the new allocated and filled quadratic matrix with size rs->k or NULL in case of error
 // caller must free up the allocated matrix,
 // returns NULL if provided indexes is not in ascending order or there are same indexes multiple times
-uint8_t * create_rs_reduced_gen_matrix(rs_ctx * rs, uint8_t * col_indexes) {
+static uint8_t * create_rs_reduced_gen_matrix(rs_ctx * rs, uint8_t * col_indexes) {
 
   uint16_t i,j;
 

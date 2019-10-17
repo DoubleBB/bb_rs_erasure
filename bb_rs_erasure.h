@@ -156,7 +156,7 @@
  *   so you don not need to recreate it as long as you decode the same erasure pattern
  *
  *   uint8_t avail_col_indexes[12] = {0,2,4,5,6,7,8,9,10,11,12,13,14}
- *   uint8_t * inv_reduced_generator_matrix_t = create_rs_reduced_gen_matrix(rs, avail_col_indexes);
+ *   uint8_t * inv_reduced_generator_matrix_t = create_rs_decode_matrix(rs, avail_col_indexes);
  *
  *   uint8_t recalculated_count rs_decode(rs, v, inv_reduced_generator_matrix_t, v, z, 2, m)
  *
@@ -273,11 +273,3 @@ uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict con
 uint8_t rs_encode_block(rs_ctx const * restrict const rs, uint8_t  *  * u, const uint32_t block_length,
                         uint8_t const * restrict const req_indexes, const uint8_t nb_req_indexes, uint8_t * * r);
 
-
-// copy k different columns of n columns of generator matrix according to provided column indexes
-// provided column indexes must be all different ones in any order
-// (first rs->k indexes will be used)
-// returns a pointer to the new allocated and filled quadratic matrix with size rs->k or NULL in case of error
-// caller must free up the allocated matrix,
-// returns NULL if provided indexes is not in ascending order or there are same indexes multiple times
-uint8_t * create_rs_reduced_gen_matrix(rs_ctx * rs, uint8_t * col_indexes);
