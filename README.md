@@ -94,7 +94,7 @@
   so you don not need to recreate it as long as you decode the same erasure pattern.  
    
 >    uint8_t avail_col_indexes[12] = {0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};  
->    uint8_t inv_reduced_generator_matrix_t = create_rs_reduced_gen_matrix(rs, avail_col_indexes);
+>    uint8_t inv_reduced_generator_matrix_t = create_rs_decode_matrix(rs, avail_col_indexes);
 > 
 >    uint8_t recalculated_count rs_decode(rs, v, inv_reduced_generator_matrix_t, v, z, 2, m)
  
