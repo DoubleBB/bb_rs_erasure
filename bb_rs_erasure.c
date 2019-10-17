@@ -198,7 +198,10 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
             GF_ADD_INTO(r[j], gf_mul(rs, q[i], v[j-i]));  // r[j] - q[k]*v[j-k]  addition is the same as substraction
 
       r[m+i] = 0; // set this remainder coefficient to zero
-    } // if
+
+    } else
+      q[i] = 0;
+
   } // for
 }
 
