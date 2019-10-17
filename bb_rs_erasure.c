@@ -183,21 +183,23 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
   int16_t i,j; // i and j are intentionally signed and bigger than uint8_t
 
   memcpy(r,u,n+1); // init remainder as full polynomial
-  memset(q,0,n-m+1); // later we will fill up q[] step-by-step
-
 
   // the result created in n-m+1 steps
   for(i=n-m; i>=0; i--) {
+    if (r[m+i]) { // skip this step if r[i+m] is zero
+
       // calculate quotient of current power coefficients in remainder by dividing the actual coefficients
-      q[i] = gf_div(rs, r[m+i], v[m]); // r[m+k] / v[m]
+      q[i] = gf_div(rs, r[m+i], v[m]); // r[m+i] / v[m]
 
       // substract the q*v from the remainder
-      if (!q[i]) // skip whole step if q[i] is zero
+      if (q[i]) // skip whole step if q[i] is zero
         for (j=m+i-1; j>=i; j--)
-          GF_ADD_INTO(r[j], gf_mul(rs, q[i], v[j-i]));  // r[j] - q[k]*v[j-k]  addition is the same as substraction
+          if (v[j-i]) // skip if v[j-i] is zero
+            GF_ADD_INTO(r[j], gf_mul(rs, q[i], v[j-i]));  // r[j] - q[k]*v[j-k]  addition is the same as substraction
+
+      r[m+i] = 0; // set this remainder coefficient to zero
+    } // if
   } // for
-  for(j=m; j<=n; j++)
-    r[j] = 0;
 }
 
 
@@ -372,16 +374,15 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
   } // if
 
   // init result matrix as an identity matrix
-  for(i=0; i<nb_rows; i++)
+  for(i=0; i<nb_rows;i++)
     result_matrix[i * nb_columns + i] = 1;
 
   // go trough the source matrix
   while (current_row < nb_rows && current_col < nb_columns) {
 
-    // Find the pivot in source matrix at/below current row in curent column
+    // Find the pivot in source matrix at/below current row in curent col
     // in general Gauss elimination process pivot item is the abs_max to achive best numerical stability but
-    // here we can choose pivot as the first non-null item because
-    // we are in GF => no need for improved numerical stability
+    // here we can choose pivot as the first non-null item because we are in GF => no need for improved numerical stability
     uint16_t pivot_row = current_row;
     uint8_t pivot_val = source_matrix[current_row * nb_columns + current_col];
 
@@ -689,8 +690,7 @@ uint8_t rs_check(rs_ctx const * restrict const rs, uint8_t const * restrict cons
 
 
 // because we use systematic generator matrix calculate only the last n-k items of the code word but only required ones
-// required index values may be in any order but values must be between n-k ... n-1
-// (because on the first k position there are the systematic input code words)
+// required index values may be in any order but values must be between n-k ... n-1  (because on the first k position there are the systematic input code words)
 // u contains the message block items in normal neutral ascending order
 uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict const u,
                   uint8_t const * restrict const req_indexes, const uint8_t nb_req_indexes, uint8_t * restrict const r) {
