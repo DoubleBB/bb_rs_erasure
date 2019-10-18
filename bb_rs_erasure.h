@@ -16,8 +16,11 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-#include <stdint.h>
 
+
+#include <stdint.h>
+#ifndef _bb_rs_erasure_h_
+#define _bb_rs_erasure_h_
 
 // Galoise Field (GF) of prime 2 with power of 8  a.k.a. GF(2**8)
 #define GF_ORDER 256 // 2**8 - number of elements in this GF
@@ -273,3 +276,4 @@ uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict con
 uint8_t rs_encode_block(rs_ctx const * restrict const rs, uint8_t  *  * u, const uint32_t block_length,
                         uint8_t const * restrict const req_indexes, const uint8_t nb_req_indexes, uint8_t * * r);
 
+#endif
