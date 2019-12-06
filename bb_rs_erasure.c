@@ -1,5 +1,5 @@
 /*
- Reed-Solomon code implementation for erasure coding  v.1.0
+ Reed-Solomon code implementation for erasure coding  v.1.0.2
 
  Copyright (c) 2019 Bela Bodecs   (bodecsb#vivanet.hu)
 
@@ -191,11 +191,11 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
       // calculate quotient of current power coefficients in remainder by dividing the actual coefficients
       q[i] = gf_div(rs, r[m+i], v[m]); // r[m+i] / v[m]
 
-      // substract the q*v from the remainder
+      // substract the q[i]*v from the remainder
       if (q[i]) // skip whole step if q[i] is zero
         for (j=m+i-1; j>=i; j--)
           if (v[j-i]) // skip if v[j-i] is zero
-            GF_ADD_INTO(r[j], gf_mul(rs, q[i], v[j-i]));  // r[j] - q[k]*v[j-k]  addition is the same as substraction
+            GF_ADD_INTO(r[j], gf_mul(rs, q[i], v[j-i]));  // r[j] - q[k]*v[j-k]  (addition is the same as substraction)
 
       r[m+i] = 0; // set this remainder coefficient to zero
 
@@ -205,11 +205,12 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
 }
 
 
-// create a systematic R-S generator matrix
-// basic idea: a row in a k*n sized systematic generator matrix represents something like x**i + s(x) where highest power of s(x) is n-k
+// create a systematic k*n sized R-S Generator Matrix (GM)
+// basic idea: let i-th row in a k*n sized systematic generator matrix represents something like x**(i+k) + s(x) where highest power of s(x) is n-k
 // So calculate s(x) for each k rows as x**i mod g(x) (for i: n-k .... n-1), where g(x) is the R-S generator polynom
-// this way each row will be divisible by g(x) and all c(x) = GM()*u(x) will be codewords because c(x) mod g(x) == 0 and
-// c(x) values will be systematic because the GenMatrix format is (I(k) + R(n-k,k))
+// this way each row will be divisible by g(x) and when calculate a c(x) codeword to an u(x) message -
+// as c(x) = u(x)*GM() will be codewords because c(x) mod g(x) == 0 and
+// c(x) values will be systematic because the Generator Matrix format is (I(k) + R(n-k,k))
 //
 // these will be the rows of k x n generator matrix: coefficients of x**j + (x**j mod g(x)) (k items and (n-k) items)
 //  1. row: x**(n-1) + (x**(n-1) mod g(x))               1 0 0 ... 0  R1(n-k-1) R1(n-k-2) ... R1(0)
@@ -331,7 +332,7 @@ static void gf_polynom_mul(rs_ctx * rs, uint8_t * u, uint8_t n, uint8_t * v, uin
 // create Reed-Solomon code generator polynom as (x-alpha**1)(x-alpha**2)...(x-alpha**(n-k))
 // we may choose (x-1) as first item
 static uint8_t * create_rs_generator_polynom(rs_ctx * rs) {
-  uint16_t i,j;
+  uint16_t i, j;
   uint8_t s[2];
   uint8_t * g = (uint8_t *) calloc(rs->n - rs->k + 1, sizeof(uint8_t));
   uint8_t * t = (uint8_t *) calloc(rs->n - rs->k + 1, sizeof(uint8_t));
@@ -342,8 +343,8 @@ static uint8_t * create_rs_generator_polynom(rs_ctx * rs) {
     return NULL;
   } // if
 
-  g[0]=rs->exp_table[1];
-  g[1]=1;
+  g[0] = rs->exp_table[1];
+  g[1] = 1;
 
   for(i=2; i<=(rs->n - rs->k); i++) {
     for(j=0; j<i; j++)
@@ -571,7 +572,7 @@ uint8_t * create_rs_decode_matrix(rs_ctx * rs, uint8_t * col_indexes) {
 }
 
 
-// free-up rs and all its all members
+// free-up rs and its all members
 void rs_free(rs_ctx * rs) {
   if (!rs)
     return;
@@ -828,7 +829,7 @@ uint8_t rs_encode_block(rs_ctx const * restrict const rs, uint8_t *  *  u, const
         // one of the two items in the multiplication will be in this multiplcation table row
         mul_table_row = &rs->mul_table[ rs->generator_matrix_t[gm_row_start + i] * GF_ORDER];
 
-        // calculate multiple code words paralell to optimize memeory caching
+        // calculate multiple code words paralell to optimize memory caching
         // unroling 16 times is a good compromise (32 gave no benefit)
         for(m=0, ui = u[i], rj = r[j]; m < mod_block_length; m+=16) {
           GF_ADD_INTO(rj[ 0], mul_table_row[ui[ 0]]);
@@ -865,7 +866,7 @@ uint8_t rs_encode_block(rs_ctx const * restrict const rs, uint8_t *  *  u, const
       calculated_index_count ++;
 
     } else {
-      // this required index value is out of scope
+      // nothing to do, this required index value is out of scope
     } // if
   } // for j
   return calculated_index_count;
