@@ -233,6 +233,8 @@ static uint8_t * create_rs_generator_matrix(rs_ctx * rs) {
     free(r);
     free(rs->generator_matrix);
     free(rs->generator_matrix_t);
+    rs->generator_matrix = NULL;
+    rs->generator_matrix_t = NULL;
     return NULL;
   } // if
 
@@ -261,13 +263,18 @@ static uint8_t * create_rs_generator_matrix(rs_ctx * rs) {
 }
 
 
-// H * Gt == 0 by definition
+// H * Gt == 0 by definition,
+// return
+//    0 on success,
+//    1 on error
 uint8_t check_parity_and_generator_matrix(rs_ctx * rs) {
 
   uint16_t i,j,m;
   uint8_t error_flag = 0;
 
   uint8_t * s = calloc(rs->k * (rs->n - rs->k), sizeof(uint8_t));
+  if (!s)
+    return 1;
 
   // calculate HxGt matrix
   for(j=0; j<(rs->n - rs->k); j++)
@@ -282,6 +289,7 @@ uint8_t check_parity_and_generator_matrix(rs_ctx * rs) {
       if (s[i*rs->k + j])
         error_flag = 1;
 
+  free(s);
   return error_flag;
 }
 
@@ -377,7 +385,7 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
   } // if
 
   // init result matrix as an identity matrix
-  for(i=0; i<nb_rows;i++)
+  for(i=0; i<nb_rows; i++)
     result_matrix[i * nb_columns + i] = 1;
 
   // go trough the source matrix
@@ -403,7 +411,7 @@ static uint8_t gf_inverse_matrix_in_place(rs_ctx * rs, uint8_t * source_matrix, 
       current_col++;
 
     } else {
-      // if pivot_row != current_row then swap rows item by item: current_row <=> idx_pivot_row) in both matrix
+      // if pivot_row != current_row then swap rows item by item: current_row <=> idx_pivot_row in both matrix
       if (current_row!=pivot_row) {
         memcpy(tmp_swap_row, &source_matrix[current_row*nb_columns], nb_columns*sizeof(uint8_t));
         memcpy(&source_matrix[current_row*nb_columns], &source_matrix[pivot_row*nb_columns], nb_columns*sizeof(uint8_t));
@@ -561,6 +569,10 @@ uint8_t * create_rs_decode_matrix(rs_ctx * rs, uint8_t * col_indexes) {
 
 
   inv_reduced_generator_matrix_t = (uint8_t *) calloc(rs->k * rs->k, sizeof(uint8_t));
+  if (!inv_reduced_generator_matrix_t) {
+    free(reduced_generator_matrix);
+    return NULL;
+  } // if
 
   // we need the transponse of inverted reduced_generator_matrix for easier calculations
   for(j=0; j<rs->k; j++)
@@ -593,7 +605,7 @@ rs_ctx * rs_init(uint8_t n, uint8_t k) {
   rs_ctx * rs = NULL;
 
 
-  rs = (rs_ctx *) malloc(sizeof(rs_ctx) );
+  rs = (rs_ctx *) calloc(sizeof(rs_ctx) );
   if (!rs)
     return NULL;
 

@@ -1,7 +1,7 @@
 /*
- Reed-Solomon code implementation for erasure coding  v.1.0
+ Reed-Solomon code implementation for erasure coding  v.1.0.2
 
- Copyright (c) 2019 Bela Bodecs   (bodecsb#vivanet.hu)
+ Copyright (c) 2019-2020 Bela Bodecs   (bodecsb#vivanet.hu)
 
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,19 +77,20 @@
  *   This implementation use systematic generator matrices, so the first k bytes
  *   of the output n bytes are always the same as the input k bytes.
  *   So encoding practically means to produce n-k bytes to the input message.
- *   somethins these n-k bytes are called forward error correction info.
+ *   These n-k bytes are called forward error correction info.
  *
- *   Due to properties of Reed-Solomon code, any k bytes of the codeword
+ *   Due to properties of Reed-Solomon code, any k bytes of the n bytes long codeword
  *   may be used to re-create all the n bytes of the whole codeword,
  *   and thus recover k bytes of the original message.
  *   The only requirement for you when you lost bytes of codeword,
  *   is to know what the k bytes original positions were
- *   in the whole codeword. The lost data byte positions are called erasure errors, or
- *   erasure positions. So if you lost up to n-k bytes of the codeword,
+ *   in the whole n bytes long codeword.
+ *   The lost data byte positions are called erasure errors, or
+ *   erasure positions. So if you lost up to n-k bytes of the n bytes long codeword,
  *   no problem, thanks to the forward error correction part, it is always possible
  *   to recover the original whole codeword n bytes data.
  *   Reed-Solomon code is even capable to correct if some bytes in your codeword altered,
- *   but this implementation only able to signal the altering, not correc them.
+ *   but this implementation only able to signal the altering, not correct them.
  *   This implementation use GF(2**8) for Reed-Solomon code aritmetic.
  *   So the codeword items are bytes because a byte is just 8 bits.
  *   You may choose value of n between 1 and 255 freely.
@@ -102,17 +103,17 @@
  * Typical usage steps
  *
  *   Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.
- *   Let n=15 and k=12.
- *   This means that fec values are 3 bytes appended to the 12 bytes long input messages
+ *   Just as an example, let n=15 and k=12.
+ *   This means that fec values are 3 bytes long and appended to the 12 bytes long input messages
  *   A full codeword length will be 15 bytes long. This implentation use systematic
  *   generator matrix, so in each codeword on positions 0...11
- *   the original message bytes will be, and index positions 12..14 hold fec values.
+ *   the original message bytes will appear, and index positions 12..14 hold fec values.
  *
  *   uint8_t rs_n=15, rs_k=12;
  *   rs_ctx * rs = rs_init(rs_n, rs_k);
  *
- *   To calculate a R-S code word vector last forward error corrector part:
- *   (code word bytes on the first k position are the same as input message bytes,
+ *   To calculate a R-S codeword vector last forward error corrector part:
+ *   (codeword bytes on the first k position are the same as input message bytes,
  *    it means no need to calculate them, but only the last n-k bytes)
  *
  *   uint8_t r[3], u[12] = { 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!'};
@@ -143,7 +144,7 @@
  *
  *
  *   Recalculate some missing message bytes based on any 12 byte of the original message:
- *   Let' assume we lost only 2 bytes of codeword according to the followings (we have 2 erasure errors):
+ *   Let' assume we lost only 2 bytes of codeword according to the followings:
  *
  *   'h', ?, 'l', ?, 'o', ' ', w, 'o', 'r', 'l', 'd', '!', r0, r1, r2
  *
@@ -157,7 +158,7 @@
  *   First we need to calculate a new decode matrix based on available data indexes:
  *   (choose any 12 of available 13 data index values but same ones as you filled up v vector)
  *   Please notice that this decode matrix depends only on available indexes and not the actual data,
- *   so you do not need to recreate it as long as you decode the same erasure pattern
+ *   so you don not need to recreate it as long as you decode the same erasure pattern
  *
  *   uint8_t avail_col_indexes[12] = {0,2,4,5,6,7,8,9,10,11,12,13,14}
  *   uint8_t * inv_reduced_generator_matrix_t = create_rs_decode_matrix(rs, avail_col_indexes);
@@ -171,7 +172,7 @@
  *   Sometimes you do not want to re-create all the missing bytes. rs_decode function
  *   makes it possible to choose which index positons to recalculate (see z vector)
  *
- *   Do not forget to free the decode matrix:
+ *   Do mot forget to free the decode matrix:
  *   free(inv_reduced_generator matrix);
  *
  *   To free all the rs data:
