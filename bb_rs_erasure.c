@@ -605,7 +605,7 @@ rs_ctx * rs_init(uint8_t n, uint8_t k) {
   rs_ctx * rs = NULL;
 
 
-  rs = (rs_ctx *) calloc(sizeof(rs_ctx) );
+  rs = (rs_ctx *) calloc(1, sizeof(rs_ctx));
   if (!rs)
     return NULL;
 
