@@ -1,7 +1,7 @@
 /*
- Reed-Solomon code implementation for erasure coding  v.1.0.2
+ Reed-Solomon code implementation for erasure coding  v.1.0.3
 
- Copyright (c) 2019 Bela Bodecs   (bodecsb#vivanet.hu)
+ Copyright (c) 2019-2021 Bela Bodecs   (bodecsb#vivanet.hu)
 
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,7 +54,7 @@ static inline uint8_t gf_div(rs_ctx const * const rs, uint8_t a, uint8_t b) {
   //
   //  if (a == 0 || b == 0)  // b == 0 is an error
   //    return 0;
-  //  // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha,
+  //  // we add GF_MUL_ORDER to the sum to avoid negativ result, alpha**GF_MUL_ORDER == alpha,
   //  // by definition because th eorder of alpha is GF_MUL_ORER
   //  // a - b == GF_MUL_ORDER - b + a
   //  int16_t exp = GF_MUL_ORDER - rs->log_table[b] + rs->log_table[a];
@@ -68,35 +68,137 @@ static inline uint8_t gf_div(rs_ctx const * const rs, uint8_t a, uint8_t b) {
 static void free_gf_tables(rs_ctx * rs) {
   if (!rs)
     return;
-  free(rs->exp_table); // If a null pointer is passed as argument, no action occurs.
-  free(rs->log_table);
-  free(rs->div_table);
-  free(rs->mul_table);
+
+  if (!rs->external_tables) {
+    free(rs->tables); // If a null pointer is passed as argument, no action occurs.
+  } //if
+
+  rs->tables = NULL;
+  rs->exp_table = NULL;
+  rs->log_table = NULL;
+  rs->div_table = NULL;
+  rs->mul_table = NULL;
 }
+
+
+uint8_t set_external_tables(rs_ctx * rs, clone_data_t * external_tables) {
+
+  size_t size_of_gf_tables = (3 * GF_ORDER + 2 * GF_ORDER * GF_ORDER) * sizeof(uint8_t);
+  size_t size_of_g = (rs->n - rs->k + 1) * sizeof(uint8_t);
+  size_t size_of_generator_matrix = rs->n * rs->k * sizeof(uint8_t);
+  size_t size_of_generator_matrix_t = rs->k * rs->n * sizeof(uint8_t);
+  size_t size_of_parity_matrix = rs->n * (rs->n - rs->k) * sizeof(uint8_t);
+
+  size_t size_of_data = size_of_gf_tables + size_of_g + size_of_generator_matrix + size_of_generator_matrix_t + size_of_parity_matrix;
+
+  if (external_tables->k != rs->k || external_tables->n != rs->n ||
+      external_tables->size_of_data != size_of_data || !external_tables->data)
+    return 0;
+
+
+  uint8_t * p = external_tables->data;
+  rs->tables = p;
+  p += size_of_gf_tables;
+  rs->g = p;
+  p += size_of_g;
+  rs->generator_matrix = p;
+  p += size_of_generator_matrix;
+  rs->generator_matrix_t = p;
+  p += size_of_generator_matrix_t;
+  rs->parity_matrix = p;
+
+
+  return 1;
+}
+
+
+clone_data_t * clone_internal_tables(rs_ctx const * restrict const rs) {
+
+
+  if (!rs || !rs->tables ||
+      !rs->g || !rs->parity_matrix ||
+      !rs->generator_matrix || !rs->generator_matrix_t)
+    return NULL;
+
+  clone_data_t * clone_data = NULL;
+
+  clone_data = (clone_data_t *) calloc(1, sizeof(clone_data_t));
+  if (!clone_data)
+    return NULL;
+
+  clone_data->n = rs->n;
+  clone_data->k = rs->k;
+
+  size_t size_of_gf_tables = (3 * GF_ORDER + 2 * GF_ORDER * GF_ORDER) * sizeof(uint8_t);
+  size_t size_of_g = (rs->n - rs->k + 1) * sizeof(uint8_t);
+  size_t size_of_generator_matrix = rs->n * rs->k * sizeof(uint8_t);
+  size_t size_of_generator_matrix_t = rs->k * rs->n * sizeof(uint8_t);
+  size_t size_of_parity_matrix = rs->n * (rs->n - rs->k) * sizeof(uint8_t);
+
+
+  clone_data->data = (uint8_t *) malloc(size_of_gf_tables +
+                                        size_of_g +
+                                        size_of_generator_matrix +
+                                        size_of_generator_matrix_t +
+                                        size_of_parity_matrix);
+  if (!clone_data->data) {
+    free(clone_data);
+    return NULL;
+  } // if
+  clone_data->size_of_data = size_of_gf_tables + size_of_g + size_of_generator_matrix + size_of_generator_matrix_t + size_of_parity_matrix;
+
+  uint8_t * p = clone_data->data;
+  memcpy(p, rs->tables, size_of_gf_tables);
+  p += size_of_gf_tables;
+  memcpy(p, rs->g, size_of_g);
+  p += size_of_g;
+  memcpy(p, rs->generator_matrix, size_of_generator_matrix);
+  p += size_of_generator_matrix;
+  memcpy(p, rs->generator_matrix_t, size_of_generator_matrix_t);
+  p += size_of_generator_matrix_t;
+  memcpy(p, rs->parity_matrix, size_of_parity_matrix);
+
+  return clone_data;
+}
+
+
 
 
 // allocate and fill-up all GF aritmetic helper table
 static uint8_t init_gf_tables(rs_ctx * rs) {
 
-  // allocate and zero memory for tables
+  size_t exp_table_size = 2 * GF_ORDER * sizeof(uint8_t);
+  size_t log_table_size = GF_ORDER * sizeof(uint8_t);
+  size_t div_table_size = GF_ORDER * GF_ORDER * sizeof(uint8_t);
+  size_t mul_table_size = GF_ORDER * GF_ORDER * sizeof(uint8_t) ;
+  size_t size_of_sum_gf_table_memories = exp_table_size + log_table_size + div_table_size + mul_table_size;
+
+  if (!rs->external_tables) {
+    rs->tables = (uint8_t *) calloc(1, size_of_sum_gf_table_memories);
+  } //  if
+
+  if (!rs->tables)
+    return 0;
 
   // max power value of adding two alphas as primitive element is GF_MUL_ORDER + GF_MUL_ORDER
-  rs->exp_table = (uint8_t *) calloc(2 * GF_ORDER, sizeof(uint8_t));
+  // exp_table contains alpha powers
+  rs->exp_table = rs->tables; // (uint8_t *) calloc(2 * GF_ORDER, sizeof(uint8_t));
   // exp values range between 0 and GF_MUL_ORDER-1  alpha**GF_MUL_ORDER = 1
-  rs->log_table = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t));
-  rs->div_table = (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
-  rs->mul_table = (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
+  // rs->exp_table[i] == alpha**i mod GF_PRIMITIVE_POLYNOMIAL (i. power of alpha modulo by GF_PRIMITIVE_POLYNOMIAL)
+  // we use the alpha == 2 as primitive multiplicative generator element
+  // rs->exp_table[0] == 1, rs->exp_table[2] == 2 etc.
+  rs->log_table = &rs->tables[exp_table_size]; // (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t));
+  rs->div_table = &rs->tables[exp_table_size + log_table_size]; // (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
+  rs->mul_table = &rs->tables[exp_table_size + log_table_size + div_table_size]; // (uint8_t *) calloc(GF_ORDER * GF_ORDER, sizeof(uint8_t));
 
-  if (!rs->exp_table || !rs->log_table || !rs->div_table || !rs->mul_table) {
-    free_gf_tables(rs);
-    return 0;
-  } // if
+  if (rs->external_tables)
+    return 1; // no need any table calculation
 
-  uint16_t i,j;
-  uint16_t x,t;
+
+  uint16_t i,j,x;  // helper variables
 
   // exp_table[0] = 1 because it is alpha**0 (b1), exp_table[1] = b10 because it is alpha**1,
-  // exp_table[2] = b100 because it is alpha**2 etc,
+  // exp_table[2] = b100 because it is alpha**2 and so on until exp_table[7],
   // but exp_table[8] == lower bits of primitive polinomial coeffs because using the substitution that prim.poly(alpha) == 0,
   // so alpha**8 == prim.poly(alpha) - alpha**8 (in binary -b == +b)
   x = 1; // we use the alpha == 2 as primitive multiplicative generator element  (in GF(2**F_POWER) alpha**GF_MUL_ORDER == 1)
@@ -106,6 +208,7 @@ static uint8_t init_gf_tables(rs_ctx * rs) {
 
     // to easily get the answer for question:  "what is the number equals with the i-th power of alpha in GF(2**8)?"
     rs->exp_table[i] = x;
+
 
     // to easily get the answer for question:  "which power of alpha is x  in GF(2**8)?"
     rs->log_table[x] = i;
@@ -117,31 +220,50 @@ static uint8_t init_gf_tables(rs_ctx * rs) {
                                     // it also clears the highest bit
                                     // this substitution comes from the fact that
                                     // alpha is root of primitive polynomial by definition
+                                    // substituting occurs by adding each bit positions. XOR is the add method in GF(2**8)
+
+    // to easily calculate multiplication of two numbers of GF(2**8) we oversize exp table by 2
+    // the mutiplication is the same as adding the power values:  a^x * a^y = a^(x+y)
+    // in our case x = 0...7 and y = 0...7
+    // but the "upper half" of the matrix is the same as the lower half,
+    // because multplicative order means that after this many consecutive powers the generator values will be the same again (cyclic ring)
+    // raising generator element to power of MULt.order is the genertor element again. We never can get zero, so MUL.ORDEr is GF_ORDER-1
+    // a^MUL_ORDER == a
+    // so initialization of the whole matrix is based on calculating only the lower half
+    rs->exp_table[i + 1 + GF_MUL_ORDER] = x; // do not forget that x is power of i+1 now
+//    printf("(%u:) "BYTE_TO_BINARY_PATTERN" => (%u:) "BYTE_TO_BINARY_PATTERN"\n", i, BYTE_TO_BINARY(rs->exp_table[i]), i+1, BYTE_TO_BINARY(x));
   } // for
-  rs->log_table[0] = GF_MUL_ORDER; // this remains uninitialized because log(0) does not exist
+  rs->log_table[0] = GF_MUL_ORDER; // this would remain uninitialized because log(0) does not exist
                                    // (we may setting it to any value)
 
 
   // to easily calculate multiplication of two numbers of GF(2**8) we oversize exp table by 2
-  for(t=GF_ORDER; t <= 2 * GF_MUL_ORDER; t++)
-    rs->exp_table[t] = rs->exp_table[t - GF_MUL_ORDER];
-
+  // but the matrix is simmetrical
+//  for(t=GF_ORDER; t<2*GF_ORDER; t++)
+//    if (rs->exp_table[t] != rs->exp_table[t - GF_MUL_ORDER]) {
+//      printf("oversize error at position %u", t);
+//      return 0;
+//    } //if
 
   // a full multiplication table
-  for(i=0; i<=GF_MUL_ORDER; i++)
-    for(j=0; j<=GF_MUL_ORDER; j++)
-      if (i != 0 && j != 0)
-        rs->mul_table[i * GF_ORDER + j] = rs->exp_table[ rs->log_table[i] + rs->log_table[j] ];
-        // mod by GF_MUL_ORDER is unnecessary because size of exp_table is 2 * GF_ORDER
+//  for(i=0; i<=GF_MUL_ORDER; i++)
+//    for(j=0; j<=GF_MUL_ORDER; j++)
+//      if (i != 0 && j != 0)
 
-  // a full division table
-  for(i=0; i<=GF_MUL_ORDER; i++)
-    for(j=0; j<=GF_MUL_ORDER; j++)
-      if (i != 0 && j != 0)
-        // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha,
-        // by definition because th eorder of alpha is GF_MUL_ORER
-        // a - b == GF_MUL_ORDER - b + a
-        rs->div_table[i * GF_ORDER + j] = rs->exp_table[ (int16_t)GF_MUL_ORDER - rs->log_table[j] + rs->log_table[i] ];
+  // a full multiplication and division table
+  // J == 0 and  i == 0 values remain zero, because  zero times anything is zero
+  for(i=1; i<=GF_MUL_ORDER; i++)
+    for(j=1; j<=GF_MUL_ORDER; j++) {
+
+      // theoretically need to do mod by GF_MUL_ORDER, but this  is unnecessary here because size of exp_table is 2 * GF_ORDER
+      // intentionally to avoid/save this relative expensive mod operation here
+      rs->mul_table[i * GF_ORDER + j] = rs->exp_table[ rs->log_table[i] + rs->log_table[j] ];
+
+      // we add GF_MUL_ORDER to avoid negativ result, alpha**GF_MUL_ORDER == alpha,
+      // by definition because the order of alpha is GF_MUL_ORDER
+      // a - b == GF_MUL_ORDER - b + a
+      rs->div_table[i * GF_ORDER + j] = rs->exp_table[ (int16_t)GF_MUL_ORDER - rs->log_table[j] + rs->log_table[i] ];
+    } // for
 
   return 1;
 }
@@ -176,13 +298,13 @@ uint8_t gf_simple_polynom_divison_in_place(rs_ctx * rs, uint8_t * c, uint8_t n, 
 // of another polynomial of degree m in v[0 .. m], divide the polynomial u by the polynomial v
 // resulting a quotient polynomial whose coefficients are returned in q[0 .. n-m], and a
 // remainder polynomial whose coefficients are returned in r[0 .. n].
-// The elements in r[m .. n] are always returned as zero because highest non-zero power coefficient
+// The elements in r[0 .. m .. n] are always returned as zero because highest non-zero power coefficient
 // of r is m-1 or less, but we use r[] for calculations, so its size must be n+1
 // m is NOT greater than n
 static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint8_t * v, uint8_t m, uint8_t * q, uint8_t * r) {
   int16_t i,j; // i and j are intentionally signed and bigger than uint8_t
 
-  memcpy(r,u,n+1); // init remainder as full polynomial
+  memcpy(r,u,n+1); // init remainder as full u polynomial
 
   // the result created in n-m+1 steps
   for(i=n-m; i>=0; i--)
@@ -205,7 +327,7 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
 }
 
 
-// create a systematic k*n sized R-S Generator Matrix (GM)
+// create a systematic k*n sized R-S Generator Matrix (GM) and its transponse
 // basic idea: let i-th row in a k*n sized systematic generator matrix represents something like x**(i+k) + s(x) where highest power of s(x) is n-k
 // So calculate s(x) for each k rows as x**i mod g(x) (for i: n-k .... n-1), where g(x) is the R-S generator polynom
 // this way each row will be divisible by g(x) and when calculate a c(x) codeword to an u(x) message -
@@ -220,9 +342,9 @@ static void gf_polynom_div(rs_ctx const * const rs, uint8_t * u, uint8_t n, uint
 //
 static uint8_t * create_rs_generator_matrix(rs_ctx * rs) {
   uint16_t i,j;
-  uint8_t * p = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t));
-  uint8_t * q = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t));
-  uint8_t * r = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t));
+  uint8_t * p = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t)); // max possible size
+  uint8_t * q = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t)); // max possible size
+  uint8_t * r = (uint8_t *) calloc(GF_ORDER, sizeof(uint8_t)); // max possible size
 
   rs->generator_matrix = (uint8_t *) calloc( rs->k * rs->n, sizeof(uint8_t));
   rs->generator_matrix_t = (uint8_t *) calloc( rs->n * rs->k, sizeof(uint8_t));
@@ -254,7 +376,7 @@ static uint8_t * create_rs_generator_matrix(rs_ctx * rs) {
   free(q);
   free(r);
 
-  // also create the transponse of genrator matrix
+  // also create the transponse of generator matrix
   for(j=0; j<rs->k; j++)
     for(i=0; i<rs->n; i++)
       rs->generator_matrix_t[i * rs->k + j] = rs->generator_matrix[j * rs->n + i];
@@ -296,7 +418,7 @@ uint8_t check_parity_and_generator_matrix(rs_ctx * rs) {
 
 //  calculate  the H (n-k,k) sized parity matrix of systematic generator matrix.
 //  Basic idea: if Gt is the transponse of G generator matrix, then H x Gt == 0 by definition for any linear code
-//  So if G is systematic G == (I(k),B(k,n-k) and thus H == (A(n-k,k),I(n-k))
+//  So if G is systematic then looks like this: G == (I(k),B(k,n-k) and thus H == (A(n-k,k),I(n-k))
 //  From this quaity comes that A == - Bt   where Bt is the transponse of B matrix and I is an identity matrix
 static uint8_t * create_rs_parity_matrix(rs_ctx * rs) {
 
@@ -322,7 +444,7 @@ static uint8_t * create_rs_parity_matrix(rs_ctx * rs) {
 
 
 // Given the n+1 coefficients of a polynomial of degree n in u[0..n], and the m+1 coefficients
-// of another polynomial of degree m in v[0..m], multiple the two polynomials as u * v over GF into r [0 ... n*m]
+// of another polynomial of degree m in v[0..m], multiple the two polynomials as u * v over GF into r[0 ... n*m]
 static void gf_polynom_mul(rs_ctx * rs, uint8_t * u, uint8_t n, uint8_t * v, uint8_t m, uint8_t * r) {
 
   uint16_t i,j;
@@ -332,13 +454,16 @@ static void gf_polynom_mul(rs_ctx * rs, uint8_t * u, uint8_t n, uint8_t * v, uin
 
   for (i=0; i<=m; i++)
     for (j=0; j<=n && v[i]; j++) // skip if v[i] == 0
-      GF_ADD_INTO(r[i+j], gf_mul(rs, u[j], v[i])); // r[i+j] = gf_add(r[i+j], gf_mul(rs, u[j], v[i]));
+      if (u[j])
+        GF_ADD_INTO(r[i+j], gf_mul(rs, u[j], v[i])); // r[i+j] = gf_add(r[i+j], gf_mul(rs, u[j], v[i]));
 
 }
 
 
-// create Reed-Solomon code generator polynom as (x-alpha**1)(x-alpha**2)...(x-alpha**(n-k))
-// we may choose (x-1) as first item
+// calculate Reed-Solomon simplest code generator polynom as (x-alpha**i)(x-alpha**i+1)...(x-alpha**(i+n-k))
+// we choose i=1 case, so first tag is (x-alpha), the 2nd tag is (x-alpha**2) and so on ...
+// because  we used the alpha == 2 as primitive multiplicative generator element to create exp_table
+// any n-k consecutive powers of alpha is usable
 static uint8_t * create_rs_generator_polynom(rs_ctx * rs) {
   uint16_t i, j;
   uint8_t s[2];
@@ -351,15 +476,18 @@ static uint8_t * create_rs_generator_polynom(rs_ctx * rs) {
     return NULL;
   } // if
 
-  g[0] = rs->exp_table[1];
+  // starting by (x-a)
+  g[0] = rs->exp_table[1]; // this is alpha itself
   g[1] = 1;
 
   for(i=2; i<=(rs->n - rs->k); i++) {
     for(j=0; j<i; j++)
-      t[j] = g[j];
+      t[j] = g[j]; // copy current g coeffitients into t
+
+    // put (x-a**î) into s
     s[0] = rs->exp_table[i];
     s[1] = 1;
-    gf_polynom_mul(rs,t,i-1,s,1,g); // s * t into g
+    gf_polynom_mul(rs,t,i-1,s,1,g); // calculate s * t into g
   } // for
   rs->g = g;
   free(t);
@@ -546,6 +674,7 @@ static uint8_t * create_rs_reduced_gen_matrix(rs_ctx * rs, uint8_t * col_indexes
 // creates a reduced generator matrix based on provided column indexes and invert that matrix and finally transponse it
 // returns NULL on error or pointer to the result matrix
 // caller must free up the result matrix
+// number of col_indexes must be exactly rs->k and must be all different numbers in any order
 // to calculate all the original data words based on any k items of c(x) use: u(x) = ck(x)D(k)
 // where D is the kxk sized decode matrix and ck(x) is the choosen k items of n in c(x)
 uint8_t * create_rs_decode_matrix(rs_ctx * rs, uint8_t * col_indexes) {
@@ -590,20 +719,31 @@ void rs_free(rs_ctx * rs) {
     return;
 
   free_gf_tables(rs);
-  free(rs->g);
-  free(rs->generator_matrix);
-  free(rs->generator_matrix_t);
-  free(rs->parity_matrix);
+  if (!rs->external_tables) {
+    free(rs->g);
+    free(rs->generator_matrix);
+    free(rs->generator_matrix_t);
+    free(rs->parity_matrix);
+  } // if
+  rs->g = NULL;
+  rs->generator_matrix = NULL;
+  rs->generator_matrix_t = NULL;
+  rs->parity_matrix = NULL;
 
   free(rs);
 }
 
 
-
-rs_ctx * rs_init(uint8_t n, uint8_t k) {
+static rs_ctx * internal_rs_init(uint8_t n, uint8_t k, clone_data_t * external_tables) {
 
   rs_ctx * rs = NULL;
+  if (external_tables) {
+    k = external_tables->k;
+    n = external_tables->n;
+  } //if
 
+  if (n <= k)
+    return NULL;
 
   rs = (rs_ctx *) calloc(1, sizeof(rs_ctx));
   if (!rs)
@@ -620,12 +760,24 @@ rs_ctx * rs_init(uint8_t n, uint8_t k) {
   rs->generator_matrix = NULL;
   rs->generator_matrix_t = NULL;
   rs->parity_matrix = NULL;
+  rs->tables = NULL;
+//  rs->size_of_sum_gf_table_memories = 0;
+  rs->external_tables = 0;
 
-
+  if (external_tables) {
+    rs->external_tables = 1;
+    if (!set_external_tables(rs, external_tables)) {
+      rs_free(rs);
+      return NULL;
+    } // if
+  } // if
   if (!init_gf_tables(rs)) {
     rs_free(rs);
     return NULL;
   } // if
+
+  if (external_tables)
+    return rs;
 
   if (!create_rs_generator_polynom(rs)) { // alloc and init
     rs_free(rs);
@@ -641,7 +793,18 @@ rs_ctx * rs_init(uint8_t n, uint8_t k) {
     rs_free(rs);
     return NULL;
   } // if
+
   return rs;
+
+}
+
+
+rs_ctx * rs_init_with_external_tables(clone_data_t * external_tables) {
+  return internal_rs_init(0, 0, external_tables);
+}
+
+rs_ctx * rs_init(uint8_t n, uint8_t k) {
+  return internal_rs_init(n, k, NULL);
 }
 
 
@@ -678,29 +841,31 @@ uint8_t rs_decode(rs_ctx const * restrict const rs, uint8_t const * restrict con
   return calculated_index_count;
 }
 
-
-// check code word by calculate n-k sized syndrome vector, Each syndrome must be zero in case of error free code word
-uint8_t rs_check(rs_ctx const * restrict const rs, uint8_t const * restrict const c, uint8_t * restrict const e) {
+// H x c == 0 by definition, so check it!
+// c: full length (n) code word
+// e: resulted syndrome (n-k sized vector)
+// return the count of non-zero syndrome positions (0...n-k)
+uint8_t rs_calculate_syndrome(rs_ctx const * restrict const rs, uint8_t const * restrict const c, uint8_t * restrict const e) {
 
   uint16_t j,i;
   uint8_t register a;
   uint16_t register row_start;
 
-  // no need for init e vector because all of its mebers will be set
+  // no need for init e vector because all of its members will be set
 
-  uint8_t syndrome_vector_is_ok = 1;
+  uint8_t syndrome_error_count = 0;
 
   for(j=0; j<(rs->n - rs->k); j++) {
-    a = 0; // must be init
+    a = 0; // must be zeroing each loop
     row_start = j * rs->n;
     for(i=0;i<rs->n;i++)
       GF_ADD_INTO(a, gf_mul(rs, rs->parity_matrix[ row_start + i ], c[i] ));
     e[j] = a;
     if (a) // should be zero
-      syndrome_vector_is_ok = 0;
+      syndrome_error_count ++;
   } // for
 
-  return syndrome_vector_is_ok;
+  return syndrome_error_count;
 }
 
 
@@ -721,7 +886,7 @@ uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict con
     if (req_indexes[j]<rs->n && req_indexes[j]>=rs->k) {
      // multiply the u message polynom with the n-k+index column of the generator matrix
       row_start = req_indexes[j]*rs->k;
-      a = 0; // must be iit
+      a = 0; // must be initilized az zero
 
       for(i=0; i<rs->k; i++)
         GF_ADD_INTO(a, gf_mul(rs, u[i], rs->generator_matrix_t[row_start + i]));
@@ -753,7 +918,9 @@ uint8_t rs_decode_block(rs_ctx const * restrict const rs, uint8_t const * restri
   uint16_t mod_block_length = (block_length >> 4) << 4 ; // block_length - block_length % 16;
   uint8_t calculated_index_count = 0;
 
+  // go through all required indexes
   for(j=0; j<nb_req_indexes; j++) {
+
     // initialize all result  values to zero
     memset(v[j],0,block_length*sizeof(uint8_t));
 
@@ -787,7 +954,7 @@ uint8_t rs_decode_block(rs_ctx const * restrict const rs, uint8_t const * restri
         } // for m
 
         // remaining items
-        for(m = mod_block_length; m < block_length; m++) {
+        for(m=mod_block_length; m<block_length; m++) {
           GF_ADD_INTO(*vj, mul_table_row[*ci]);
           vj++;
           ci++;
@@ -800,7 +967,7 @@ uint8_t rs_decode_block(rs_ctx const * restrict const rs, uint8_t const * restri
       calculated_index_count ++;
 
     } else {
-      // this require dindex is out of scope, rsult vector values remain zero
+      // this required index is out of scope, rsult vector values remain zero
     } // if
   } // for
   return calculated_index_count;
@@ -809,8 +976,8 @@ uint8_t rs_decode_block(rs_ctx const * restrict const rs, uint8_t const * restri
 
 // this is the most speed critical part
 // u contains the input data and the result R-S code words will placed into r
-// u contains k different ponters to block_length sized data vector
-// r conatins n-k different pointers to block_length sized data vector
+// u contains k different pointers to block_length sized data vectors
+// r contains n-k different pointers to block_length sized data vectors
 // see rs_encode for other restrictions
 uint8_t rs_encode_block(rs_ctx const * restrict const rs, uint8_t *  *  u, const uint32_t block_length,
                         uint8_t const * restrict const req_indexes, const uint8_t nb_req_indexes, uint8_t *  * r) {
@@ -821,66 +988,74 @@ uint8_t rs_encode_block(rs_ctx const * restrict const rs, uint8_t *  *  u, const
   register uint8_t * restrict mul_table_row;
   uint8_t  *  restrict ui, * restrict rj;
 
-  uint16_t mod_block_length = (block_length >> 4) << 4 ; // block_length - block_length % 16;
+  uint16_t mod_block_length = (block_length >> 4) << 4 ; // fast way to clculate  block_length - block_length % 16;
   uint8_t calculated_index_count = 0;
+
 
   // go through all required indexes
   for(j=0; j<nb_req_indexes; j++) {
-    // initialize all result  values to zero
+    // initialize all result  values to zero (r is a ponter array)
     memset(r[j],0,block_length*sizeof(uint8_t));
 
-    if (req_indexes[j]<rs->n && req_indexes[j]>=rs->k) {
-      // multiply the u message polynom with the n-k+index column of the generator matrix
+    // calculate only fec indexes (k ... n-1)
+    if (req_indexes[j] >= rs->n  ||  req_indexes[j] < rs->k)
+      continue; // nothing to do, this required index value is out of scope
 
-      // we explit the fact that u values and r values are on consecutive memr yplaces
-      gm_row_start = req_indexes[j]*rs->k; // pre-calculate here the used gen. matrix row
-      for(i=0; i<rs->k; i++) { // go through all matrix row coeficients
-        // because we calculate erasured values the gn.matrix coefficients tipically are non-zero value,
-        // so do not try to optimize by checking for zero values because it would waste of time
 
-        // one of the two items in the multiplication will be in this multiplcation table row
-        mul_table_row = &rs->mul_table[ rs->generator_matrix_t[gm_row_start + i] * GF_ORDER];
+    // hint: take the values of u as coefficients of a polinom and
+    //       multiply the u message polynom with the n-k+index column of the generator matrix
 
-        // calculate multiple code words paralell to optimize memory caching
-        // unroling 16 times is a good compromise (32 gave no benefit)
-        for(m=0, ui = u[i], rj = r[j]; m < mod_block_length; m+=16) {
-          GF_ADD_INTO(rj[ 0], mul_table_row[ui[ 0]]);
-          GF_ADD_INTO(rj[ 1], mul_table_row[ui[ 1]]);
-          GF_ADD_INTO(rj[ 2], mul_table_row[ui[ 2]]);
-          GF_ADD_INTO(rj[ 3], mul_table_row[ui[ 3]]);
-          GF_ADD_INTO(rj[ 4], mul_table_row[ui[ 4]]);
-          GF_ADD_INTO(rj[ 5], mul_table_row[ui[ 5]]);
-          GF_ADD_INTO(rj[ 6], mul_table_row[ui[ 6]]);
-          GF_ADD_INTO(rj[ 7], mul_table_row[ui[ 7]]);
-          GF_ADD_INTO(rj[ 8], mul_table_row[ui[ 8]]);
-          GF_ADD_INTO(rj[ 9], mul_table_row[ui[ 9]]);
-          GF_ADD_INTO(rj[10], mul_table_row[ui[10]]);
-          GF_ADD_INTO(rj[11], mul_table_row[ui[11]]);
-          GF_ADD_INTO(rj[12], mul_table_row[ui[12]]);
-          GF_ADD_INTO(rj[13], mul_table_row[ui[13]]);
-          GF_ADD_INTO(rj[14], mul_table_row[ui[14]]);
-          GF_ADD_INTO(rj[15], mul_table_row[ui[15]]);
-          rj+=16;
-          ui+=16;
-        } // for m
+    // to speed up things, we exploit the fact that u values and r values are on consecutive memory places
+    gm_row_start = req_indexes[j]*rs->k; // pre-calculate here the used generator matrix row
+    for(i=0; i<rs->k; i++) { // go through all matrix row coeficients
 
-        // remaining items
-        for(m = mod_block_length; m < block_length; m++) {
-          GF_ADD_INTO(*rj, mul_table_row[*ui]);
-          rj++;
-          ui++;
-        } // for
+      // because the gen.matrix coefficients tipically are non-zero values,
+      // do not try to optimize by checking for zero values because it would waste of time
 
-        // un-optimized version:
-        // GF_ADD_INTO(r[j][m], gf_mul_inline(rs, u[i][m], rs->generator_matrix_t[row_start + i]));
+      // one of the two items in the multiplication will be in this multiplcation table row
+      // this was the reason to create transposed gen.matrix, to go through on row values
+      mul_table_row = &rs->mul_table[ rs->generator_matrix_t[gm_row_start + i] * GF_ORDER];
 
-      } // for i
-      calculated_index_count ++;
+      // go through all input/output code words
+      // calculate multiple code words "paralell" to optimize memory caching
+      // unroling 16 times is a good compromise (32 gave no benefit)
+      for(m=0, ui = u[i], rj = r[j]; m < mod_block_length; m+=16) {
+        GF_ADD_INTO(rj[ 0], mul_table_row[ui[ 0]]);
+        GF_ADD_INTO(rj[ 1], mul_table_row[ui[ 1]]);
+        GF_ADD_INTO(rj[ 2], mul_table_row[ui[ 2]]);
+        GF_ADD_INTO(rj[ 3], mul_table_row[ui[ 3]]);
+        GF_ADD_INTO(rj[ 4], mul_table_row[ui[ 4]]);
+        GF_ADD_INTO(rj[ 5], mul_table_row[ui[ 5]]);
+        GF_ADD_INTO(rj[ 6], mul_table_row[ui[ 6]]);
+        GF_ADD_INTO(rj[ 7], mul_table_row[ui[ 7]]);
+        GF_ADD_INTO(rj[ 8], mul_table_row[ui[ 8]]);
+        GF_ADD_INTO(rj[ 9], mul_table_row[ui[ 9]]);
+        GF_ADD_INTO(rj[10], mul_table_row[ui[10]]);
+        GF_ADD_INTO(rj[11], mul_table_row[ui[11]]);
+        GF_ADD_INTO(rj[12], mul_table_row[ui[12]]);
+        GF_ADD_INTO(rj[13], mul_table_row[ui[13]]);
+        GF_ADD_INTO(rj[14], mul_table_row[ui[14]]);
+        GF_ADD_INTO(rj[15], mul_table_row[ui[15]]);
+        rj+=16;
+        ui+=16;
+      } // for m
 
-    } else {
-      // nothing to do, this required index value is out of scope
-    } // if
+      // remaining items (if block length is not multiple of 16)
+      // rj and ui has been initialized in previous for even when mod_block_length == 0
+      for(m = mod_block_length; m < block_length; m++) {
+        GF_ADD_INTO(*rj, mul_table_row[*ui]);
+        rj++;
+        ui++;
+      } // for
+
+      // un-optimized version:
+      // GF_ADD_INTO(r[j][m], gf_mul_inline(rs, u[i][m], rs->generator_matrix_t[row_start + i]));
+
+    } // for i
+    calculated_index_count ++;
+
   } // for j
   return calculated_index_count;
 }
+
 

@@ -1,7 +1,7 @@
 /*
- Reed-Solomon code implementation for erasure coding  v.1.0.2
+ Reed-Solomon code implementation for erasure coding  v.1.0.3
 
- Copyright (c) 2019-2020 Bela Bodecs   (bodecsb#vivanet.hu)
+ Copyright (c) 2019-2021 Bela Bodecs   (bodecsb#vivanet.hu)
 
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,15 +19,17 @@
 
 
 #include <stdint.h>
+#include <stdlib.h>
+
 #ifndef _bb_rs_erasure_h_
 #define _bb_rs_erasure_h_
 
 // Galoise Field (GF) of prime 2 with power of 8  a.k.a. GF(2**8)
 #define GF_ORDER 256 // 2**8 - number of elements in this GF
-#define GF_MUL_ORDER 255 // multiplicative order of primitive element is GF_ORDER - 1
+#define GF_MUL_ORDER 255 // multiplicative order of primitive element is GF_ORDER - 1 for all prmitive polinomial
 
 
-// in GF(2**m) adding is the XORing the two component ans adding is the same as substraction
+// in GF(2**m) adding is the XORing the two component and adding is the same as substraction
 // for efficiency reasons, it is better to use as macro than as function
 #define GF_ADD_INTO(a, b) a ^= b
 
@@ -39,6 +41,7 @@
  *
  * https://link.springer.com/content/pdf/bbm%3A978-1-4615-1509-8%2F1.pdf
  * http://users.ece.cmu.edu/~koopman/lfsr/8.txt
+ * https://www.pclviewer.com/rs2/galois.html
  *
  *
  *   100011101   (285)
@@ -58,7 +61,14 @@
  *   111100111   (487)   inefficient
  *   111110101   (501)   inefficient
  *
+ *   In each of these polinomials the x is the lowest primitive element,
+ *   (x to be a generator of the multiplicative group)
+ *   because they are all primitive polynomials
+ *   https://codyplanteen.com/assets/rs/gf256_prim.pdf
  *
+ *   https://math.stackexchange.com/questions/2395157/primitive-polynomial-vs-irreducible-polynomial-for-construction-field-gf2x
+ *   https://math.stackexchange.com/tags/finite-fields/info
+ *   https://math.stackexchange.com/questions/59577/what-happens-when-you-mod-out-by-a-non-primitive-irreducible-polynomial-over-f
  */
 
 
@@ -74,13 +84,14 @@
  *   A Reed-Solomon codeword over GF(2**8) consists of n bytes,
  *   and the original message consist of k bytes. Encoding means,
  *   you create the output n bytes based on the input k bytes.
- *   This implementation use systematic generator matrices, so the first k bytes
+ *   Value of k is less than value of n.
+ *   MY implementation use systematic generator matrices, so the first k bytes
  *   of the output n bytes are always the same as the input k bytes.
  *   So encoding practically means to produce n-k bytes to the input message.
- *   These n-k bytes are called forward error correction info.
+ *   These n-k bytes are the so called "forward error correction info". (a.k.a FEC bytes)
  *
  *   Due to properties of Reed-Solomon code, any k bytes of the n bytes long codeword
- *   may be used to re-create all the n bytes of the whole codeword,
+ *   may be used to re-create all the  bytes of the whole codeword,
  *   and thus recover k bytes of the original message.
  *   The only requirement for you when you lost bytes of codeword,
  *   is to know what the k bytes original positions were
@@ -92,15 +103,15 @@
  *   Reed-Solomon code is even capable to correct if some bytes in your codeword altered,
  *   but this implementation only able to signal the altering, not correct them.
  *   This implementation use GF(2**8) for Reed-Solomon code aritmetic.
- *   So the codeword items are bytes because a byte is just 8 bits.
+ *   So the codeword items are bytes because a byte is just exactly  8 bits.
  *   You may choose value of n between 1 and 255 freely.
- *   Value of k may be betwwen 1 and n-1. What to choose values for n and k?
+ *   Value of k may be between 1 and n-1. What to choose values for n and k?
  *   It depends on your use case. But rule of thumb, the bigger the chance you lost
  *   data, choose more difference between n and k. Bigger the n-k value,
  *   You will have more error correction info appended to the original data.
  *
  *
- * Typical usage steps
+ * Typical usage steps of this library
  *
  *   Choose you Reed-Solomon code parameters as 1<n<256 and 0<k<n and call init function.
  *   Just as an example, let n=15 and k=12.
@@ -192,20 +203,27 @@ typedef struct rs_ctx_struct {
   uint8_t * generator_matrix; // will hold k x n systematic generator matrix for Reed-Solomon code
                               // with parameters (n,k) over GF(2^8)
   uint8_t * generator_matrix_t; // transponse of generator matrix
-                                // (working on rows is more optimized than column operations on generator matrix)
+                                // (working on rows is more optimized (memory access)
+                                //  than column operations on generator matrix)
   uint8_t * parity_matrix; // n x k systematic "parity check" matrix for Reed-Solomon code
                            // with parameters (n,k) over GF(2^8)
 
 
-  // to speed up GF calculations we use table lookups
+  // to speed up GF calculations we use table lookups (gf_tables)
   uint8_t * exp_table;  // size of GF_MUL_ORDER
   uint8_t * log_table;  // size of 2 * GF_MIL_ORDER
   uint8_t * div_table;  // size of GF_ORDER * GF_ORDER
   uint8_t * mul_table;  // size of GF_ORDER * GF_ORDER
+
+  uint8_t * tables; // to speed up memory allocation allocate one continoues area for gf_tables
+
+//  size_t size_of_sum_gf_table_memories;
+  uint8_t external_tables;
 } rs_ctx;
 
 
-// H * Gt == 0 by definition, so calculate and check it
+// H * Gt == 0 by definition. H: parity matrix, Gt: transpose of generator matrix
+// so calculate and check the result
 // return 0 on failure and 1 if all result elements are zero
 uint8_t check_parity_and_generator_matrix(rs_ctx * rs);
 
@@ -218,8 +236,9 @@ uint8_t check_parity_and_generator_matrix(rs_ctx * rs);
 // (but you must provide data blocks to decode function in this very same order)
 // returns NULL on error or pointer to the result matrix
 // caller must free up the result matrix
-// to calculate all the original data words based on any k items of c(x) useing u(x) = ck(x)D(k)
-// where D is the kxk sized decode matrix and ck(x) is the choosen k items of n in c(x)
+// number of elements in col_indexes vector is k
+// to calculate all the original data words based on any k items of c(x) using u(x) = ck(x)D(k)
+// where D is the k sized quadratic decode matrix and ck(x) is the choosen k items of n in c(x)
 uint8_t * create_rs_decode_matrix(rs_ctx * rs, uint8_t * col_indexes);
 
 
@@ -250,17 +269,6 @@ uint8_t rs_decode_block(rs_ctx const * restrict const rs, uint8_t const * restri
 
 
 
-
-// check code word values by calculate n-k sized syndrome vector,
-// Each syndrome will be zero in case of error free code word
-// in input c holds the n code word values,
-// on return the result vector e will hold the n-k syndrome values
-// return 0 if any syndrome value is non-zero
-// return 1 if all syndrome values are zero
-uint8_t rs_check(rs_ctx const * restrict const rs, uint8_t const * restrict const c, uint8_t * restrict const e);
-
-
-
 // calculate the required code word values based on message values into r
 // (codeword values count is n, so its indexes go through 0 ... n-1)
 // because we use systematic generator matrix,  only the last n-k items of the code word values may be required to calculate
@@ -277,5 +285,29 @@ uint8_t rs_encode(rs_ctx const * restrict const rs, uint8_t const * restrict con
 // same as rs_encode but works on data arrays
 uint8_t rs_encode_block(rs_ctx const * restrict const rs, uint8_t  *  * u, const uint32_t block_length,
                         uint8_t const * restrict const req_indexes, const uint8_t nb_req_indexes, uint8_t * * r);
+
+
+// H x c == 0 by definition,
+// so each syndrome will be zero in case of error free code word
+// c: full length (n) code word
+// e: resulted syndrome (n-k vector)
+// return the count of non-zero syndrome positions (0...n-k)
+uint8_t rs_calculate_syndrome(rs_ctx const * restrict const rs, uint8_t const * restrict const c, uint8_t * restrict const e);
+
+
+
+typedef struct clone_data_struct {
+  uint8_t n;
+  uint8_t k;
+  size_t size_of_data;
+  uint8_t * data;
+} clone_data_t;
+
+// to speed up init time, pass pre-calcuzlted gf_tables to init function
+rs_ctx * rs_init_with_external_tables(clone_data_t * clone_data);
+
+// to speed up init time, next time pass rs to rsinit_with_external_tables
+clone_data_t * clone_internal_tables(rs_ctx const * restrict const rs);
+
 
 #endif
